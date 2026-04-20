@@ -18,19 +18,27 @@ You have the web_search tool. You MUST use it to verify every person. For each c
 - Capture 2–4 prior employers if they surface in public bios, LinkedIn snippets, press quotes, or conference bios. Use them to infer the career archetype.
 
 ADVISOR ARCHETYPE
-For every person, produce a short phrase (4–9 words) describing the ideal *missing* advisor who could warm-intro them — inferred from their past employers and career segment. This is used when the current advisor network has no strong path to this person. Examples:
+For every person, produce a short noun phrase (4–9 words) describing the ideal *missing* advisor who could warm-intro them — inferred from their past employers and career segment. This phrase will be dropped into "this one needs a [archetype] in your network," so it must read as a standalone role description.
 
-- Career at SCAN/Molina/Beacon → "Medicaid MCO compliance leader"
-- Career at CMS, DHCS, DMHC → "Former state/federal regulator"
+Examples:
+- Career at SCAN/Molina/Beacon → "Medi-Cal MCO compliance leader"
+- Career at CMS, DHCS, DMHC → "former state or federal regulator"
 - Career at Kaiser, Sutter, Providence → "IDN compliance alumnus"
 - Career at Big Four healthcare (Deloitte/PwC/EY/KPMG) → "Big Four healthcare audit partner"
 - Career at specialty pharmacy/PBM → "PBM compliance veteran"
 - Career at Covered California, exchange-adjacent → "ACA exchange compliance leader"
 
+CASING — preserve proper-noun capitalization exactly:
+- Big Four, Medi-Cal, CalAIM, Covered California
+- Agencies/acronyms: CMS, DMHC, DHCS, ACA, HIPAA, CCO, MCO, IDN, PBM, ACO, D-SNP
+- Associations: HCCA, AHIP, NAMD, AHLA, CAHP, RISE
+- Company names: Kaiser, Anthem, Blue Shield, SCAN, Molina, Beacon, Sutter, Providence, L.A. Care, CalOptima, Deloitte, PwC, EY, KPMG
+
 Rules:
 - Name the segment or past-employer category, not a specific company
 - No buzzwords ("thought leader," "seasoned," "expert")
-- If past employers are unclear, use the person's current role segment (e.g., "delegation oversight compliance leader")
+- DO NOT end with filler suffixes: no "background," "expertise," "experience" — the archetype must read as a role, not a qualification
+- If past employers are unclear, use the current role segment (e.g., "delegation oversight compliance leader")
 
 ABSTENTION RULE — NON-NEGOTIABLE
 - If you cannot verify at least one person at a target with a corroborating source URL, return an empty people array for that target.

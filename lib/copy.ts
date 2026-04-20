@@ -30,6 +30,22 @@ export const copy = {
     verifiability: "Evidence",
     reasoning: "Why",
     reachableVia: "Reachable via",
+    action: "",
+  },
+
+  draftIntro: "Draft intro",
+  draftModal: {
+    title: "Intro request",
+    subtitleTemplate: (advisor: string, target: string) =>
+      `From you → ${advisor} → ${target}`,
+    loading: "Drafting a forwardable intro…",
+    emailHeading: "Email to your advisor",
+    blurbHeading: "Forwardable blurb",
+    copy: "Copy",
+    copied: "Copied",
+    retry: "Regenerate",
+    close: "Close",
+    error: "Draft failed. Try again.",
   },
 
   verifiability: {
@@ -45,7 +61,20 @@ export const copy = {
   },
 
   networkGapPrefix: "Network gap —",
-  networkGapDefault: "recruit an advisor with aligned healthcare compliance background",
-  networkGapTemplate: (archetype: string) =>
-    `consider recruiting advisor with ${archetype.toLowerCase()} background`,
+  networkGapFallbackArchetype: "healthcare compliance insider",
+  networkGapPhrase: (archetype: string) =>
+    `this one needs ${indefiniteArticle(archetype)} ${archetype} in your network`,
 } as const;
+
+function indefiniteArticle(next: string): "a" | "an" {
+  const trimmed = next.trim();
+  const first = trimmed.charAt(0).toUpperCase();
+  if (!first) return "a";
+  if ("AEIO".includes(first)) return "an";
+  if (first === "U") return "a";
+  const second = trimmed.charAt(1);
+  const looksLikeAcronym =
+    second && second === second.toUpperCase() && /[A-Z]/.test(second);
+  if (looksLikeAcronym && "FHLMNRSX".includes(first)) return "an";
+  return "a";
+}

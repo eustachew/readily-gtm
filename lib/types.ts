@@ -38,3 +38,17 @@ export type MatchResponse = {
   matches: Match[];
   notes?: string;
 };
+
+export type DraftRequest = {
+  advisorName: string;
+  advisorOrganization: string;
+  targetName: string;
+  targetRole: string;
+  targetOrganization: string;
+  connectionRationale: string;
+};
+
+export type DraftResponse = {
+  email: string;
+  forwardableBlurb: string;
+};

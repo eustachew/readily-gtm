@@ -1,11 +1,21 @@
 "use client";
 
 import Papa from "papaparse";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { copy } from "@/lib/copy";
 import { downloadCsv, matchesToCsv } from "@/lib/csv";
 import { advisorsToText, parseAdvisors, parseTargets, targetsToText } from "@/lib/parse";
-import type { Match, MatchResponse, Verifiability } from "@/lib/types";
+import type {
+  DraftResponse,
+  Match,
+  MatchResponse,
+  Verifiability,
+} from "@/lib/types";
+
+type DraftContext = {
+  row: PersonRow;
+  path: Path;
+};
 
 export default function Home() {
   const [advisorsText, setAdvisorsText] = useState("");
@@ -14,6 +24,7 @@ export default function Home() {
   const [matches, setMatches] = useState<Match[] | null>(null);
   const [notes, setNotes] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
+  const [draftCtx, setDraftCtx] = useState<DraftContext | null>(null);
 
   async function handleSubmit() {
     setError(null);
@@ -105,7 +116,18 @@ export default function Home() {
         </div>
       )}
 
-      <ResultsTable matches={matches} loading={loading} />
+      <ResultsTable
+        matches={matches}
+        loading={loading}
+        onDraft={(row) => setDraftCtx({ row, path: row.paths[0] })}
+      />
+
+      {draftCtx && (
+        <DraftModal
+          ctx={draftCtx}
+          onClose={() => setDraftCtx(null)}
+        />
+      )}
     </main>
   );
 }
@@ -179,6 +201,7 @@ function InputCard({
 
 type Path = {
   advisorName: string;
+  advisorOrganization: string;
   connectionStrength: number;
   matchScore: number;
   rationale: string;
@@ -203,6 +226,7 @@ function groupByPerson(matches: Match[]): PersonRow[] {
     const key = `${m.targetOrganization}|${m.targetName}`;
     const path: Path = {
       advisorName: m.advisorName,
+      advisorOrganization: m.advisorOrganization,
       connectionStrength: m.connectionStrength,
       matchScore: m.matchScore,
       rationale: m.connectionRationale,
@@ -252,12 +276,176 @@ function verifiabilityTone(level: Verifiability): string {
   return "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-200";
 }
 
+function DraftModal({
+  ctx,
+  onClose,
+}: {
+  ctx: DraftContext;
+  onClose: () => void;
+}) {
+  const [draft, setDraft] = useState<DraftResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+
+  const run = useCallback(async () => {
+    setLoading(true);
+    setDraftError(null);
+    setDraft(null);
+    try {
+      const res = await fetch("/api/draft", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          advisorName: ctx.path.advisorName,
+          advisorOrganization: ctx.path.advisorOrganization,
+          targetName: ctx.row.targetName,
+          targetRole: ctx.row.targetRole,
+          targetOrganization: ctx.row.targetOrganization,
+          connectionRationale: ctx.path.rationale,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: copy.draftModal.error }));
+        throw new Error(err.error ?? copy.draftModal.error);
+      }
+      setDraft((await res.json()) as DraftResponse);
+    } catch (e) {
+      setDraftError(e instanceof Error ? e.message : copy.draftModal.error);
+    } finally {
+      setLoading(false);
+    }
+  }, [ctx]);
+
+  useEffect(() => {
+    run();
+  }, [run]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative flex max-h-[85vh] w-full max-w-2xl flex-col gap-5 overflow-y-auto rounded-lg bg-white p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="flex items-start justify-between gap-4">
+          <div className="flex flex-col">
+            <h2 className="text-lg font-semibold tracking-tight">
+              {copy.draftModal.title}
+            </h2>
+            <p className="text-xs text-zinc-500">
+              {copy.draftModal.subtitleTemplate(
+                ctx.path.advisorName,
+                ctx.row.targetName,
+              )}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm text-zinc-500 hover:text-zinc-900"
+            aria-label="Close"
+          >
+            {copy.draftModal.close}
+          </button>
+        </header>
+
+        {loading && (
+          <div className="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-8 text-center text-sm text-zinc-500">
+            {copy.draftModal.loading}
+          </div>
+        )}
+
+        {draftError && (
+          <div className="flex items-center justify-between rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            <span>{draftError}</span>
+            <button
+              type="button"
+              onClick={run}
+              className="rounded-md border border-red-300 bg-white px-3 py-1 text-xs font-medium text-red-800 hover:bg-red-100"
+            >
+              {copy.draftModal.retry}
+            </button>
+          </div>
+        )}
+
+        {draft && (
+          <>
+            <DraftBlock
+              heading={copy.draftModal.emailHeading}
+              body={draft.email}
+            />
+            <DraftBlock
+              heading={copy.draftModal.blurbHeading}
+              body={draft.forwardableBlurb}
+            />
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={run}
+                className="text-xs font-medium text-zinc-600 underline-offset-2 hover:text-zinc-900 hover:underline"
+              >
+                {copy.draftModal.retry}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DraftBlock({ heading, body }: { heading: string; body: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function onCopy() {
+    try {
+      await navigator.clipboard.writeText(body);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // clipboard denied — fall through silently
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+          {heading}
+        </h3>
+        <button
+          type="button"
+          onClick={onCopy}
+          className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-900 transition-colors hover:bg-zinc-50"
+        >
+          {copied ? copy.draftModal.copied : copy.draftModal.copy}
+        </button>
+      </div>
+      <pre className="whitespace-pre-wrap rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 font-sans text-sm leading-relaxed text-zinc-900">
+        {body}
+      </pre>
+    </section>
+  );
+}
+
 function ResultsTable({
   matches,
   loading,
+  onDraft,
 }: {
   matches: Match[] | null;
   loading: boolean;
+  onDraft: (row: PersonRow) => void;
 }) {
   if (loading) {
     return (
@@ -295,6 +483,7 @@ function ResultsTable({
             <th className="px-4 py-3 font-medium">{copy.columns.verifiability}</th>
             <th className="px-4 py-3 font-medium">{copy.columns.reasoning}</th>
             <th className="px-4 py-3 font-medium">{copy.columns.reachableVia}</th>
+            <th className="px-4 py-3 font-medium text-right">{copy.columns.action}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-100">
@@ -347,9 +536,10 @@ function ResultsTable({
                     <span className="font-medium not-italic">
                       {copy.networkGapPrefix}
                     </span>{" "}
-                    {r.suggestedAdvisorArchetype
-                      ? copy.networkGapTemplate(r.suggestedAdvisorArchetype)
-                      : copy.networkGapDefault}
+                    {copy.networkGapPhrase(
+                      r.suggestedAdvisorArchetype ??
+                        copy.networkGapFallbackArchetype,
+                    )}
                   </p>
                 )}
               </td>
@@ -364,6 +554,15 @@ function ResultsTable({
                     </li>
                   ))}
                 </ul>
+              </td>
+              <td className="px-4 py-3 text-right">
+                <button
+                  type="button"
+                  onClick={() => onDraft(r)}
+                  className="inline-flex h-8 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-900 transition-colors hover:bg-zinc-50"
+                >
+                  {copy.draftIntro}
+                </button>
               </td>
             </tr>
           ))}
