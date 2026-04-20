@@ -47,6 +47,7 @@ export async function POST(req: Request) {
     "targetRole",
     "targetOrganization",
     "connectionRationale",
+    "senderFirstName",
   ];
   for (const key of required) {
     if (typeof body[key] !== "string" || body[key].length === 0) {
@@ -74,6 +75,7 @@ export async function POST(req: Request) {
           targetOrganization: body.targetOrganization,
           connectionRationale: body.connectionRationale,
           personaRank: rank,
+          senderFirstName: body.senderFirstName,
         }),
       },
     ],

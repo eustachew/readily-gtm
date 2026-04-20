@@ -46,6 +46,7 @@ export type DraftRequest = {
   targetRole: string;
   targetOrganization: string;
   connectionRationale: string;
+  senderFirstName: string;
 };
 
 export type DraftResponse = {

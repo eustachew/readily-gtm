@@ -51,6 +51,24 @@ If persona rank is unknown, default to the VP Compliance (tactical) register.
 - "Move fast" — terrible positioning for a risk-averse buyer
 - Anything that makes compliance sound unserious
 
+## Founder voice vs. marketing voice (strong preference)
+
+Prefer phrasings that sound like a founder describing the problem, not a landing page describing a product. Founders talk about the wedge, the pain, what they set out to build. Marketing talks about the platform.
+
+Prefer:
+
+- "exactly our wedge"
+- "what we built Readily to do"
+- "the core pain Readily addresses"
+- "the shape of the problem we solve"
+
+Avoid (reads like marketing copy):
+
+- "Readily was built for…"
+- "Our platform enables…"
+- "Readily empowers…"
+- "Readily is a platform that…"
+
 ## Failure modes — treat these as HARD prohibitions
 
 - DO NOT sound AI-generated. Ban phrases: "I hope this email finds you well," "I trust you're doing well," "Reaching out to," "Touching base," "In today's landscape," "In the evolving world of," "Leveraging cutting-edge," "At the intersection of."
@@ -76,7 +94,7 @@ Return a single fenced JSON code block and nothing else outside it:
 }
 \`\`\`
 
-The email body MUST start with a subject line prefixed "Subject: ". Use \\n for line breaks inside JSON strings. No trailing sign-off in the email body beyond the sender's first name on the last line.`;
+The email body MUST start with a subject line prefixed "Subject: ". Use \\n for line breaks inside JSON strings. End the email body with the sender's first name (supplied in the user message) on its own line as the signoff — no longer sign-off, no "[Name]" placeholder, no company signature block.`;
 
 const PERSONA_TONES: Record<string, string> = {
   "1": "CCO (persona rank 1) — serious, ROI/risk posture, audit-ready framing, peer customer logos if any",
@@ -94,6 +112,7 @@ export function buildDraftUserMessage(params: {
   targetOrganization: string;
   connectionRationale: string;
   personaRank: PersonaRank;
+  senderFirstName: string;
 }): string {
   const personaKey = params.personaRank ? String(params.personaRank) : null;
   const toneGuidance = personaKey
@@ -105,12 +124,13 @@ export function buildDraftUserMessage(params: {
 Advisor (recipient of your email): ${params.advisorName}, ${params.advisorOrganization}
 Target person: ${params.targetName}, ${params.targetRole} at ${params.targetOrganization}
 Connection signal the matcher surfaced: ${params.connectionRationale}
+Sender first name (use this verbatim as the email signoff — last line of the body): ${params.senderFirstName}
 
 Tone calibration to use: ${toneGuidance}
 
-Write the email as if I (a Readily GTM operator) am sending it to ${params.advisorName}. Start with a line that acknowledges our relationship with them in one beat — the connection signal above is your hint, but do not quote it verbatim if it's an abstention rationale (if it says "no signal surfaced," open neutrally rather than inventing familiarity). Then the ask, the why, the ease (point them at the blurb), the escape hatch. 5 lines max.
+Write the email as if I (a Readily GTM operator named ${params.senderFirstName}) am sending it to ${params.advisorName}. Start with a line that acknowledges our relationship with them in one beat — the connection signal above is your hint, but do not quote it verbatim if it's an abstention rationale (if it says "no signal surfaced," open neutrally rather than inventing familiarity). Then the ask, the why, the ease (point them at the blurb), the escape hatch. 5 lines max. End with "${params.senderFirstName}" on its own line — no other sign-off, no "[Name]" placeholder.
 
-Write the forwardable blurb so ${params.advisorName} can paste it to ${params.targetName} with zero edits. Under 120 words. Must include a segment-specific hook for ${params.targetOrganization} — if you don't know the org specifically, use a plausible hook tied to their segment (California Medicaid MCO, IDN, etc.).
+Write the forwardable blurb so ${params.advisorName} can paste it to ${params.targetName} with zero edits. Under 120 words. Must include a segment-specific hook for ${params.targetOrganization} — if you don't know the org specifically, use a plausible hook tied to their segment (California Medicaid MCO, IDN, etc.). When referencing what Readily does, use founder voice over marketing voice (see the preference section in the system prompt).
 
 Return JSON per the schema.`;
 }

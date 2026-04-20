@@ -6,6 +6,7 @@ import { copy } from "@/lib/copy";
 import { downloadCsv, matchesToCsv } from "@/lib/csv";
 import { advisorsToText, parseAdvisors, parseTargets, targetsToText } from "@/lib/parse";
 import type {
+  Advisor,
   DraftResponse,
   Match,
   MatchResponse,
@@ -15,6 +16,7 @@ import type {
 type DraftContext = {
   row: PersonRow;
   path: Path;
+  advisors: Advisor[];
 };
 
 export default function Home() {
@@ -119,7 +121,13 @@ export default function Home() {
       <ResultsTable
         matches={matches}
         loading={loading}
-        onDraft={(row) => setDraftCtx({ row, path: row.paths[0] })}
+        onDraft={(row) =>
+          setDraftCtx({
+            row,
+            path: row.paths[0],
+            advisors: parseAdvisors(advisorsText),
+          })
+        }
       />
 
       {draftCtx && (
@@ -276,6 +284,11 @@ function verifiabilityTone(level: Verifiability): string {
   return "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-200";
 }
 
+function firstNameOf(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/);
+  return parts[0] ?? fullName.trim();
+}
+
 function DraftModal({
   ctx,
   onClose,
@@ -286,6 +299,9 @@ function DraftModal({
   const [draft, setDraft] = useState<DraftResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [draftError, setDraftError] = useState<string | null>(null);
+  const [senderName, setSenderName] = useState<string>(
+    ctx.advisors[0]?.name ?? ctx.path.advisorName,
+  );
 
   const run = useCallback(async () => {
     setLoading(true);
@@ -302,6 +318,7 @@ function DraftModal({
           targetRole: ctx.row.targetRole,
           targetOrganization: ctx.row.targetOrganization,
           connectionRationale: ctx.path.rationale,
+          senderFirstName: firstNameOf(senderName),
         }),
       });
       if (!res.ok) {
@@ -314,7 +331,7 @@ function DraftModal({
     } finally {
       setLoading(false);
     }
-  }, [ctx]);
+  }, [ctx, senderName]);
 
   useEffect(() => {
     run();
@@ -358,6 +375,30 @@ function DraftModal({
             {copy.draftModal.close}
           </button>
         </header>
+
+        {ctx.advisors.length > 0 && (
+          <div className="flex items-center gap-2 text-xs">
+            <label htmlFor="sender-select" className="text-zinc-500">
+              Send from:
+            </label>
+            <select
+              id="sender-select"
+              value={senderName}
+              onChange={(e) => setSenderName(e.target.value)}
+              disabled={loading}
+              className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 focus:border-zinc-900 focus:outline-none disabled:opacity-50"
+            >
+              {ctx.advisors.map((a) => (
+                <option key={a.name} value={a.name}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+            <span className="text-zinc-400">
+              · signoff: {firstNameOf(senderName)}
+            </span>
+          </div>
+        )}
 
         {loading && (
           <div className="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-8 text-center text-sm text-zinc-500">
