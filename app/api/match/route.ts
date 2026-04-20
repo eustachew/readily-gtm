@@ -278,6 +278,7 @@ export async function POST(req: Request) {
             person.linkedinUrl ??
             linkedInSearchUrl(person.name, result.targetOrganization),
           targetLinkedInVerified: verified,
+          sourceUrls: person.sourceUrls,
           icpFit,
           connectionStrength,
           connectionRationale,

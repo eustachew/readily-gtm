@@ -26,6 +26,7 @@ export type Match = {
   targetRole: string;
   targetLinkedIn: string;
   targetLinkedInVerified: boolean;
+  sourceUrls: string[];
   icpFit: number;
   connectionStrength: number;
   connectionRationale: string;

@@ -221,6 +221,7 @@ type PersonRow = {
   targetRole: string;
   targetLinkedIn: string;
   targetLinkedInVerified: boolean;
+  sourceUrls: string[];
   verifiability: Verifiability;
   bestScore: number;
   bestRationale: string;
@@ -249,6 +250,7 @@ function groupByPerson(matches: Match[]): PersonRow[] {
         targetRole: m.targetRole,
         targetLinkedIn: m.targetLinkedIn,
         targetLinkedInVerified: m.targetLinkedInVerified,
+        sourceUrls: m.sourceUrls ?? [],
         verifiability: m.verifiability,
         bestScore: m.matchScore,
         bestRationale: m.connectionRationale,
@@ -282,6 +284,88 @@ function verifiabilityTone(level: Verifiability): string {
   if (level === "verified") return "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200";
   if (level === "likely") return "bg-sky-50 text-sky-900 ring-1 ring-sky-200";
   return "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-200";
+}
+
+function domainOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function LinkedInGlyph({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.852 3.37-1.852 3.601 0 4.267 2.37 4.267 5.455v6.288zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+    </svg>
+  );
+}
+
+function VerifiabilityCell({ row }: { row: PersonRow }) {
+  const hasSources = row.sourceUrls.length > 0;
+  return (
+    <div className="flex items-center gap-2">
+      <div className="group relative">
+        <span
+          tabIndex={hasSources ? 0 : -1}
+          className={`inline-flex cursor-default rounded-full px-2 py-0.5 text-xs font-medium ${verifiabilityTone(row.verifiability)}`}
+          title={copy.verifiabilityHint[row.verifiability]}
+        >
+          {copy.verifiability[row.verifiability]}
+        </span>
+        {hasSources && (
+          <div className="invisible absolute left-0 top-full z-20 mt-1 w-64 rounded-md border border-zinc-200 bg-white p-3 opacity-0 shadow-lg transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+              Sources ({row.sourceUrls.length})
+            </p>
+            <ul className="flex flex-col gap-1">
+              {row.sourceUrls.map((u) => (
+                <li key={u}>
+                  <a
+                    href={u}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block truncate text-xs text-zinc-700 underline-offset-2 hover:text-zinc-900 hover:underline"
+                    title={u}
+                  >
+                    {domainOf(u)}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+      <a
+        href={row.targetLinkedIn}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`inline-flex size-5 items-center justify-center rounded transition-colors ${
+          row.targetLinkedInVerified
+            ? "text-[#0A66C2] hover:text-[#004182]"
+            : "text-zinc-300 hover:text-zinc-500"
+        }`}
+        title={
+          row.targetLinkedInVerified
+            ? "Open LinkedIn profile"
+            : "LinkedIn search (profile not verified)"
+        }
+        aria-label={
+          row.targetLinkedInVerified
+            ? "Open LinkedIn profile"
+            : "LinkedIn search"
+        }
+      >
+        <LinkedInGlyph className="size-4" />
+      </a>
+    </div>
+  );
 }
 
 function firstNameOf(fullName: string): string {
@@ -514,7 +598,7 @@ function ResultsTable({
   }
   const rows = groupByPerson(matches);
   return (
-    <div className="overflow-hidden rounded-md border border-zinc-200 bg-white">
+    <div className="rounded-md border border-zinc-200 bg-white">
       <table className="w-full text-left text-sm">
         <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
           <tr>
@@ -563,12 +647,7 @@ function ResultsTable({
                 </div>
               </td>
               <td className="px-4 py-3">
-                <span
-                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${verifiabilityTone(r.verifiability)}`}
-                  title={copy.verifiabilityHint[r.verifiability]}
-                >
-                  {copy.verifiability[r.verifiability]}
-                </span>
+                <VerifiabilityCell row={r} />
               </td>
               <td className="px-4 py-3 text-xs leading-relaxed text-zinc-600">
                 <p>{r.bestRationale}</p>
