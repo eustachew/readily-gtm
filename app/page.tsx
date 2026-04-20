@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { copy } from "@/lib/copy";
 import { downloadCsv, matchesToCsv } from "@/lib/csv";
 import { advisorsToText, parseAdvisors, parseTargets, targetsToText } from "@/lib/parse";
-import type { Match, MatchResponse } from "@/lib/types";
+import type { Match, MatchResponse, Verifiability } from "@/lib/types";
 
 export default function Home() {
   const [advisorsText, setAdvisorsText] = useState("");
@@ -177,6 +177,81 @@ function InputCard({
   );
 }
 
+type Path = {
+  advisorName: string;
+  connectionStrength: number;
+  matchScore: number;
+  rationale: string;
+};
+
+type PersonRow = {
+  targetOrganization: string;
+  targetName: string;
+  targetRole: string;
+  targetLinkedIn: string;
+  targetLinkedInVerified: boolean;
+  verifiability: Verifiability;
+  bestScore: number;
+  bestRationale: string;
+  paths: Path[];
+  suggestedAdvisorArchetype: string | null;
+};
+
+function groupByPerson(matches: Match[]): PersonRow[] {
+  const byKey = new Map<string, PersonRow>();
+  for (const m of matches) {
+    const key = `${m.targetOrganization}|${m.targetName}`;
+    const path: Path = {
+      advisorName: m.advisorName,
+      connectionStrength: m.connectionStrength,
+      matchScore: m.matchScore,
+      rationale: m.connectionRationale,
+    };
+    const existing = byKey.get(key);
+    if (existing) {
+      existing.paths.push(path);
+    } else {
+      byKey.set(key, {
+        targetOrganization: m.targetOrganization,
+        targetName: m.targetName,
+        targetRole: m.targetRole,
+        targetLinkedIn: m.targetLinkedIn,
+        targetLinkedInVerified: m.targetLinkedInVerified,
+        verifiability: m.verifiability,
+        bestScore: m.matchScore,
+        bestRationale: m.connectionRationale,
+        paths: [path],
+        suggestedAdvisorArchetype: m.suggestedAdvisorArchetype,
+      });
+    }
+  }
+  const rows = Array.from(byKey.values());
+  for (const row of rows) {
+    row.paths.sort((a, b) => b.matchScore - a.matchScore);
+    const best = row.paths[0];
+    row.bestScore = best.matchScore;
+    row.bestRationale = best.rationale;
+  }
+  rows.sort((a, b) => b.bestScore - a.bestScore);
+  return rows;
+}
+
+function displayScore(raw: number): number {
+  return Math.min(99, Math.round(raw * 1.8));
+}
+
+function scoreTone(score: number): string {
+  if (score >= 70) return "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200";
+  if (score >= 40) return "bg-amber-50 text-amber-900 ring-1 ring-amber-200";
+  return "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-200";
+}
+
+function verifiabilityTone(level: Verifiability): string {
+  if (level === "verified") return "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200";
+  if (level === "likely") return "bg-sky-50 text-sky-900 ring-1 ring-sky-200";
+  return "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-200";
+}
+
 function ResultsTable({
   matches,
   loading,
@@ -208,38 +283,87 @@ function ResultsTable({
       </div>
     );
   }
+  const rows = groupByPerson(matches);
   return (
     <div className="overflow-hidden rounded-md border border-zinc-200 bg-white">
       <table className="w-full text-left text-sm">
         <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
           <tr>
-            <th className="px-4 py-3 font-medium">{copy.columns.advisor}</th>
+            <th className="px-4 py-3 font-medium">{copy.columns.score}</th>
             <th className="px-4 py-3 font-medium">{copy.columns.targetOrg}</th>
             <th className="px-4 py-3 font-medium">{copy.columns.targetName}</th>
-            <th className="px-4 py-3 font-medium">{copy.columns.targetRole}</th>
-            <th className="px-4 py-3 font-medium">{copy.columns.targetLinkedIn}</th>
+            <th className="px-4 py-3 font-medium">{copy.columns.verifiability}</th>
+            <th className="px-4 py-3 font-medium">{copy.columns.reasoning}</th>
+            <th className="px-4 py-3 font-medium">{copy.columns.reachableVia}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-100">
-          {matches.map((m, i) => (
-            <tr key={i} className="hover:bg-zinc-50">
-              <td className="px-4 py-3 text-zinc-900">{m.advisorName}</td>
-              <td className="px-4 py-3 text-zinc-700">{m.targetOrganization}</td>
-              <td className="px-4 py-3 text-zinc-900">{m.targetName}</td>
-              <td className="px-4 py-3 text-zinc-700">{m.targetRole}</td>
+          {rows.map((r, i) => (
+            <tr key={i} className="align-top hover:bg-zinc-50">
               <td className="px-4 py-3">
-                {m.targetLinkedIn ? (
+                {(() => {
+                  const shown = displayScore(r.bestScore);
+                  return (
+                    <span
+                      className={`inline-flex min-w-[2.5rem] justify-center rounded-md px-2 py-1 font-mono text-sm font-semibold ${scoreTone(shown)}`}
+                      title={`ICP fit × connection strength × evidence weight (raw ${r.bestScore})`}
+                    >
+                      {shown}
+                    </span>
+                  );
+                })()}
+              </td>
+              <td className="px-4 py-3 text-zinc-700">{r.targetOrganization}</td>
+              <td className="px-4 py-3">
+                <div className="flex flex-col gap-0.5">
                   <a
-                    href={m.targetLinkedIn}
+                    href={r.targetLinkedIn}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-zinc-900 underline underline-offset-2 hover:text-zinc-600"
+                    className="font-medium text-zinc-900 underline-offset-2 hover:underline"
+                    title={
+                      r.targetLinkedInVerified
+                        ? "Verified LinkedIn profile"
+                        : "LinkedIn people search (profile not verified)"
+                    }
                   >
-                    View
+                    {r.targetName}
                   </a>
-                ) : (
-                  <span className="text-zinc-400">—</span>
+                  <span className="text-xs text-zinc-500">{r.targetRole}</span>
+                </div>
+              </td>
+              <td className="px-4 py-3">
+                <span
+                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${verifiabilityTone(r.verifiability)}`}
+                  title={copy.verifiabilityHint[r.verifiability]}
+                >
+                  {copy.verifiability[r.verifiability]}
+                </span>
+              </td>
+              <td className="px-4 py-3 text-xs leading-relaxed text-zinc-600">
+                <p>{r.bestRationale}</p>
+                {displayScore(r.bestScore) < 40 && (
+                  <p className="mt-2 italic text-amber-800">
+                    <span className="font-medium not-italic">
+                      {copy.networkGapPrefix}
+                    </span>{" "}
+                    {r.suggestedAdvisorArchetype
+                      ? copy.networkGapTemplate(r.suggestedAdvisorArchetype)
+                      : copy.networkGapDefault}
+                  </p>
                 )}
+              </td>
+              <td className="px-4 py-3">
+                <ul className="flex flex-col gap-0.5 text-xs text-zinc-700">
+                  {r.paths.map((p) => (
+                    <li key={p.advisorName} className="flex items-center gap-1.5">
+                      <span className="font-mono text-[10px] text-zinc-400">
+                        {p.connectionStrength}
+                      </span>
+                      <span>{p.advisorName}</span>
+                    </li>
+                  ))}
+                </ul>
               </td>
             </tr>
           ))}

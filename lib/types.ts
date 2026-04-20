@@ -7,11 +7,15 @@ export type Target = {
   organization: string;
 };
 
+export type Verifiability = "verified" | "likely" | "inferred";
+
 export type Person = {
   name: string;
   role: string;
   linkedinUrl: string | null;
   sourceUrls: string[];
+  pastEmployers: string[];
+  suggestedAdvisorArchetype: string | null;
 };
 
 export type Match = {
@@ -20,7 +24,14 @@ export type Match = {
   targetOrganization: string;
   targetName: string;
   targetRole: string;
-  targetLinkedIn: string | null;
+  targetLinkedIn: string;
+  targetLinkedInVerified: boolean;
+  icpFit: number;
+  connectionStrength: number;
+  connectionRationale: string;
+  verifiability: Verifiability;
+  matchScore: number;
+  suggestedAdvisorArchetype: string | null;
 };
 
 export type MatchResponse = {

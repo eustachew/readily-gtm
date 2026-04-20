@@ -24,10 +24,28 @@ export const copy = {
   error: "Something broke. Check the server logs.",
 
   columns: {
-    advisor: "Advisor",
+    score: "Score",
     targetOrg: "Target Org",
     targetName: "Contact",
-    targetRole: "Role",
-    targetLinkedIn: "LinkedIn",
+    verifiability: "Evidence",
+    reasoning: "Why",
+    reachableVia: "Reachable via",
   },
+
+  verifiability: {
+    verified: "Verified",
+    likely: "Likely",
+    inferred: "Inferred",
+  },
+
+  verifiabilityHint: {
+    verified: "2+ public sources and a LinkedIn profile",
+    likely: "One solid source — name, role, and org line up",
+    inferred: "Thin evidence — treat as a lead to confirm manually",
+  },
+
+  networkGapPrefix: "Network gap —",
+  networkGapDefault: "recruit an advisor with aligned healthcare compliance background",
+  networkGapTemplate: (archetype: string) =>
+    `consider recruiting advisor with ${archetype.toLowerCase()} background`,
 } as const;
