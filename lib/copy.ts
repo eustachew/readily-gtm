@@ -47,6 +47,28 @@ export const copy = {
     networkGapPlural: "network gaps",
   },
 
+  scorePopover: {
+    icpLabel: "ICP fit",
+    connectionLabel: "Connection",
+    verifiabilityLabel: "Verifiability",
+    icpTierPrimary: "Primary persona",
+    icpTierSecondary: "Secondary persona",
+    icpTierWeak: "Weak persona",
+    icpDescriptions: {
+      rank1: "top-priority buyer for Readily",
+      rank2: "top-priority buyer — reg-tracking focus",
+      rank3: "tactical daily-workflow buyer",
+      rank4: "delegation oversight buyer",
+      rank5: "audit and defensibility buyer",
+      none: "adjacent to Readily's primary ICP",
+    },
+    verifiabilityDescriptions: {
+      verified: "LinkedIn profile confirmed with 2+ corroborating sources",
+      likely: "One solid source — name, role, and org line up",
+      inferred: "Thin evidence — treat as a lead to confirm manually",
+    },
+  },
+
   draftIntro: "Draft intro",
   draftModal: {
     title: "Intro request",

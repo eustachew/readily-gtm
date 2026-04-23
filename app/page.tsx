@@ -1,10 +1,11 @@
 "use client";
 
 import Papa from "papaparse";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { copy } from "@/lib/copy";
 import { downloadCsv, matchesToCsv } from "@/lib/csv";
 import { advisorsToText, parseAdvisors, parseTargets, targetsToText } from "@/lib/parse";
+import { classifyRole, type PersonaRank } from "@/lib/scoring";
 import type {
   Advisor,
   DraftResponse,
@@ -306,6 +307,105 @@ function priorityTone(p: Priority): string {
   return "bg-violet-50 text-violet-900 ring-1 ring-violet-200";
 }
 
+function icpTier(icpFit: number): "Primary" | "Secondary" | "Weak" {
+  if (icpFit >= 1.0) return "Primary";
+  if (icpFit >= 0.6) return "Secondary";
+  return "Weak";
+}
+
+function icpTierLabel(tier: "Primary" | "Secondary" | "Weak"): string {
+  if (tier === "Primary") return copy.scorePopover.icpTierPrimary;
+  if (tier === "Secondary") return copy.scorePopover.icpTierSecondary;
+  return copy.scorePopover.icpTierWeak;
+}
+
+function icpDescription(rank: PersonaRank): string {
+  const d = copy.scorePopover.icpDescriptions;
+  if (rank === 1) return d.rank1;
+  if (rank === 2) return d.rank2;
+  if (rank === 3) return d.rank3;
+  if (rank === 4) return d.rank4;
+  if (rank === 5) return d.rank5;
+  return d.none;
+}
+
+function HoverPopover({
+  trigger,
+  children,
+  widthClass = "w-64",
+}: {
+  trigger: ReactNode;
+  children: ReactNode;
+  widthClass?: string;
+}) {
+  return (
+    <div className="group relative inline-block">
+      {trigger}
+      <div
+        role="tooltip"
+        className={`invisible absolute left-0 top-full z-20 mt-1 ${widthClass} rounded-md border border-zinc-200 bg-white p-3 text-left opacity-0 shadow-lg transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100`}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ScoreBreakdown({ row, path }: { row: PersonRow; path: Path }) {
+  const { rank, icpFit } = classifyRole(row.targetRole);
+  const tier = icpTier(icpFit);
+  return (
+    <dl className="flex flex-col gap-2 text-xs leading-relaxed">
+      <div>
+        <dt className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+          {copy.scorePopover.icpLabel}
+        </dt>
+        <dd className="text-zinc-800">
+          <span className="font-medium">{icpTierLabel(tier)}</span>
+          <span className="text-zinc-500"> — {row.targetRole}, {icpDescription(rank)}</span>
+        </dd>
+      </div>
+      <div>
+        <dt className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+          {copy.scorePopover.connectionLabel}
+        </dt>
+        <dd className="text-zinc-800">
+          <span className="font-medium">{path.connectionStrength} / 100</span>
+          <span className="text-zinc-500"> — {path.rationale}</span>
+        </dd>
+      </div>
+      <div>
+        <dt className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+          {copy.scorePopover.verifiabilityLabel}
+        </dt>
+        <dd className="text-zinc-800">
+          <span className="font-medium">{copy.verifiability[row.verifiability]}</span>
+          <span className="text-zinc-500"> — {copy.scorePopover.verifiabilityDescriptions[row.verifiability]}</span>
+        </dd>
+      </div>
+    </dl>
+  );
+}
+
+function ScorePill({ row, path }: { row: PersonRow; path: Path }) {
+  const shown = displayScore(path.matchScore);
+  return (
+    <HoverPopover
+      widthClass="w-80"
+      trigger={
+        <span
+          tabIndex={0}
+          className="inline-flex min-w-[2rem] cursor-help justify-center rounded-md bg-zinc-100 px-1.5 py-0.5 font-mono text-xs font-medium text-zinc-600 ring-1 ring-zinc-200 focus:outline-none focus:ring-zinc-400"
+        >
+          {shown}
+        </span>
+      }
+    >
+      <ScoreBreakdown row={row} path={path} />
+    </HoverPopover>
+  );
+}
+
 function PriorityCell({
   row,
   onDraft,
@@ -323,11 +423,7 @@ function PriorityCell({
         >
           {priorityLabel(p)}
         </span>
-        {p !== "network-gap" && (
-          <span className="inline-flex min-w-[2rem] justify-center rounded-md bg-zinc-100 px-1.5 py-0.5 font-mono text-xs font-medium text-zinc-600 ring-1 ring-zinc-200">
-            {displayScore(best.matchScore)}
-          </span>
-        )}
+        {p !== "network-gap" && <ScorePill row={row} path={best} />}
       </div>
       {p === "network-gap" ? (
         <p className="text-xs italic text-violet-800">
@@ -403,39 +499,41 @@ function LinkedInGlyph({ className }: { className?: string }) {
 
 function VerifiabilityCell({ row }: { row: PersonRow }) {
   const hasSources = row.sourceUrls.length > 0;
+  const badge = (
+    <span
+      tabIndex={hasSources ? 0 : -1}
+      className={`inline-flex cursor-default rounded-full px-2 py-0.5 text-xs font-medium ${verifiabilityTone(row.verifiability)}`}
+      title={copy.verifiabilityHint[row.verifiability]}
+    >
+      {copy.verifiability[row.verifiability]}
+    </span>
+  );
   return (
     <div className="flex items-center gap-2">
-      <div className="group relative">
-        <span
-          tabIndex={hasSources ? 0 : -1}
-          className={`inline-flex cursor-default rounded-full px-2 py-0.5 text-xs font-medium ${verifiabilityTone(row.verifiability)}`}
-          title={copy.verifiabilityHint[row.verifiability]}
-        >
-          {copy.verifiability[row.verifiability]}
-        </span>
-        {hasSources && (
-          <div className="invisible absolute left-0 top-full z-20 mt-1 w-64 rounded-md border border-zinc-200 bg-white p-3 opacity-0 shadow-lg transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
-            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
-              Sources ({row.sourceUrls.length})
-            </p>
-            <ul className="flex flex-col gap-1">
-              {row.sourceUrls.map((u) => (
-                <li key={u}>
-                  <a
-                    href={u}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block truncate text-xs text-zinc-700 underline-offset-2 hover:text-zinc-900 hover:underline"
-                    title={u}
-                  >
-                    {domainOf(u)}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
+      {hasSources ? (
+        <HoverPopover trigger={badge}>
+          <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+            Sources ({row.sourceUrls.length})
+          </p>
+          <ul className="flex flex-col gap-1">
+            {row.sourceUrls.map((u) => (
+              <li key={u}>
+                <a
+                  href={u}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block truncate text-xs text-zinc-700 underline-offset-2 hover:text-zinc-900 hover:underline"
+                  title={u}
+                >
+                  {domainOf(u)}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </HoverPopover>
+      ) : (
+        badge
+      )}
       <a
         href={row.targetLinkedIn}
         target="_blank"
