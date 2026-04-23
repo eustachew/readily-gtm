@@ -274,16 +274,110 @@ function displayScore(raw: number): number {
   return Math.min(99, Math.round(raw * 1.8));
 }
 
-function scoreTone(score: number): string {
-  if (score >= 70) return "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200";
-  if (score >= 40) return "bg-amber-50 text-amber-900 ring-1 ring-amber-200";
-  return "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-200";
-}
-
 function verifiabilityTone(level: Verifiability): string {
   if (level === "verified") return "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200";
   if (level === "likely") return "bg-sky-50 text-sky-900 ring-1 ring-sky-200";
   return "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-200";
+}
+
+type Priority = "high" | "medium" | "low" | "network-gap";
+
+function priorityFor(row: PersonRow): Priority {
+  const hasViablePath = row.paths.some((p) => p.connectionStrength > 15);
+  if (!hasViablePath) return "network-gap";
+  if (row.bestScore >= 50) {
+    return row.verifiability === "inferred" ? "medium" : "high";
+  }
+  if (row.bestScore >= 25) return "medium";
+  return "low";
+}
+
+function priorityLabel(p: Priority): string {
+  if (p === "high") return copy.priority.high;
+  if (p === "medium") return copy.priority.medium;
+  if (p === "low") return copy.priority.low;
+  return copy.priority.networkGap;
+}
+
+function priorityTone(p: Priority): string {
+  if (p === "high") return "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200";
+  if (p === "medium") return "bg-amber-50 text-amber-900 ring-1 ring-amber-200";
+  if (p === "low") return "bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200";
+  return "bg-violet-50 text-violet-900 ring-1 ring-violet-200";
+}
+
+function PriorityCell({
+  row,
+  onDraft,
+}: {
+  row: PersonRow;
+  onDraft: (row: PersonRow) => void;
+}) {
+  const p = priorityFor(row);
+  const best = row.paths[0];
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-2">
+        <span
+          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${priorityTone(p)}`}
+        >
+          {priorityLabel(p)}
+        </span>
+        {p !== "network-gap" && (
+          <span className="inline-flex min-w-[2rem] justify-center rounded-md bg-zinc-100 px-1.5 py-0.5 font-mono text-xs font-medium text-zinc-600 ring-1 ring-zinc-200">
+            {displayScore(best.matchScore)}
+          </span>
+        )}
+      </div>
+      {p === "network-gap" ? (
+        <p className="text-xs italic text-violet-800">
+          {copy.networkGapPhrase(
+            row.suggestedAdvisorArchetype ??
+              copy.networkGapFallbackArchetype,
+          )}
+        </p>
+      ) : (
+        <button
+          type="button"
+          onClick={() => onDraft(row)}
+          className="self-start text-xs font-medium text-zinc-600 underline-offset-2 hover:text-zinc-900 hover:underline"
+        >
+          {copy.draftIntro} →
+        </button>
+      )}
+    </div>
+  );
+}
+
+function PriorityCounts({ rows }: { rows: PersonRow[] }) {
+  const counts = { high: 0, medium: 0, low: 0, "network-gap": 0 };
+  for (const r of rows) counts[priorityFor(r)] += 1;
+  const gapCount = counts["network-gap"];
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+      <span>
+        <strong className="font-semibold text-emerald-900">{counts.high}</strong>{" "}
+        {copy.priorityCounts.high}
+      </span>
+      <span className="text-zinc-300">·</span>
+      <span>
+        <strong className="font-semibold text-amber-900">{counts.medium}</strong>{" "}
+        {copy.priorityCounts.medium}
+      </span>
+      <span className="text-zinc-300">·</span>
+      <span>
+        <strong className="font-semibold text-zinc-600">{counts.low}</strong>{" "}
+        {copy.priorityCounts.low}
+      </span>
+      <span className="text-zinc-300">·</span>
+      <span>
+        <strong className="font-semibold text-violet-900">{gapCount}</strong>{" "}
+        {gapCount === 1
+          ? copy.priorityCounts.networkGapSingular
+          : copy.priorityCounts.networkGapPlural}
+      </span>
+    </div>
+  );
 }
 
 function domainOf(url: string): string {
@@ -598,96 +692,68 @@ function ResultsTable({
   }
   const rows = groupByPerson(matches);
   return (
-    <div className="rounded-md border border-zinc-200 bg-white">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
-          <tr>
-            <th className="px-4 py-3 font-medium">{copy.columns.score}</th>
-            <th className="px-4 py-3 font-medium">{copy.columns.targetOrg}</th>
-            <th className="px-4 py-3 font-medium">{copy.columns.targetName}</th>
-            <th className="px-4 py-3 font-medium">{copy.columns.verifiability}</th>
-            <th className="px-4 py-3 font-medium">{copy.columns.reasoning}</th>
-            <th className="px-4 py-3 font-medium">{copy.columns.reachableVia}</th>
-            <th className="px-4 py-3 font-medium text-right">{copy.columns.action}</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-zinc-100">
-          {rows.map((r, i) => (
-            <tr key={i} className="align-top hover:bg-zinc-50">
-              <td className="px-4 py-3">
-                {(() => {
-                  const shown = displayScore(r.bestScore);
-                  return (
-                    <span
-                      className={`inline-flex min-w-[2.5rem] justify-center rounded-md px-2 py-1 font-mono text-sm font-semibold ${scoreTone(shown)}`}
-                      title={`ICP fit × connection strength × evidence weight (raw ${r.bestScore})`}
-                    >
-                      {shown}
-                    </span>
-                  );
-                })()}
-              </td>
-              <td className="px-4 py-3 text-zinc-700">{r.targetOrganization}</td>
-              <td className="px-4 py-3">
-                <div className="flex flex-col gap-0.5">
-                  <a
-                    href={r.targetLinkedIn}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-medium text-zinc-900 underline-offset-2 hover:underline"
-                    title={
-                      r.targetLinkedInVerified
-                        ? "Verified LinkedIn profile"
-                        : "LinkedIn people search (profile not verified)"
-                    }
-                  >
-                    {r.targetName}
-                  </a>
-                  <span className="text-xs text-zinc-500">{r.targetRole}</span>
-                </div>
-              </td>
-              <td className="px-4 py-3">
-                <VerifiabilityCell row={r} />
-              </td>
-              <td className="px-4 py-3 text-xs leading-relaxed text-zinc-600">
-                <p>{r.bestRationale}</p>
-                {displayScore(r.bestScore) < 40 && (
-                  <p className="mt-2 italic text-amber-800">
-                    <span className="font-medium not-italic">
-                      {copy.networkGapPrefix}
-                    </span>{" "}
-                    {copy.networkGapPhrase(
-                      r.suggestedAdvisorArchetype ??
-                        copy.networkGapFallbackArchetype,
-                    )}
-                  </p>
-                )}
-              </td>
-              <td className="px-4 py-3">
-                <ul className="flex flex-col gap-0.5 text-xs text-zinc-700">
-                  {r.paths.map((p) => (
-                    <li key={p.advisorName} className="flex items-center gap-1.5">
-                      <span className="font-mono text-[10px] text-zinc-400">
-                        {p.connectionStrength}
-                      </span>
-                      <span>{p.advisorName}</span>
-                    </li>
-                  ))}
-                </ul>
-              </td>
-              <td className="px-4 py-3 text-right">
-                <button
-                  type="button"
-                  onClick={() => onDraft(r)}
-                  className="inline-flex h-8 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 text-xs font-medium text-zinc-900 transition-colors hover:bg-zinc-50"
-                >
-                  {copy.draftIntro}
-                </button>
-              </td>
+    <div className="flex flex-col gap-3">
+      <PriorityCounts rows={rows} />
+      <div className="rounded-md border border-zinc-200 bg-white">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
+            <tr>
+              <th className="px-4 py-3 font-medium">{copy.columns.targetOrg}</th>
+              <th className="px-4 py-3 font-medium">{copy.columns.targetName}</th>
+              <th className="px-4 py-3 font-medium">{copy.columns.verifiability}</th>
+              <th className="px-4 py-3 font-medium">{copy.columns.reasoning}</th>
+              <th className="px-4 py-3 font-medium">{copy.columns.reachableVia}</th>
+              <th className="px-4 py-3 font-medium">{copy.columns.priority}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {rows.map((r, i) => (
+              <tr key={i} className="align-top hover:bg-zinc-50">
+                <td className="px-4 py-3 text-zinc-700">{r.targetOrganization}</td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-col gap-0.5">
+                    <a
+                      href={r.targetLinkedIn}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium text-zinc-900 underline-offset-2 hover:underline"
+                      title={
+                        r.targetLinkedInVerified
+                          ? "Verified LinkedIn profile"
+                          : "LinkedIn people search (profile not verified)"
+                      }
+                    >
+                      {r.targetName}
+                    </a>
+                    <span className="text-xs text-zinc-500">{r.targetRole}</span>
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <VerifiabilityCell row={r} />
+                </td>
+                <td className="px-4 py-3 text-xs leading-relaxed text-zinc-600">
+                  <p>{r.bestRationale}</p>
+                </td>
+                <td className="px-4 py-3">
+                  <ul className="flex flex-col gap-0.5 text-xs text-zinc-700">
+                    {r.paths.map((p) => (
+                      <li key={p.advisorName} className="flex items-center gap-1.5">
+                        <span className="font-mono text-[10px] text-zinc-400">
+                          {p.connectionStrength}
+                        </span>
+                        <span>{p.advisorName}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </td>
+                <td className="px-4 py-3">
+                  <PriorityCell row={r} onDraft={onDraft} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -24,13 +24,27 @@ export const copy = {
   error: "Something broke. Check the server logs.",
 
   columns: {
-    score: "Score",
+    priority: "Priority",
     targetOrg: "Target Org",
     targetName: "Contact",
     verifiability: "Evidence",
     reasoning: "Why",
     reachableVia: "Reachable via",
-    action: "",
+  },
+
+  priority: {
+    high: "High priority",
+    medium: "Medium priority",
+    low: "Low priority",
+    networkGap: "Network gap",
+  },
+
+  priorityCounts: {
+    high: "high",
+    medium: "medium",
+    low: "low",
+    networkGapSingular: "network gap",
+    networkGapPlural: "network gaps",
   },
 
   draftIntro: "Draft intro",
