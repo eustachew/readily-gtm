@@ -462,25 +462,27 @@ function PriorityCounts({ rows }: { rows: PersonRow[] }) {
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
       <span>
-        <strong className="font-mono font-semibold text-verified-ink">{counts.high}</strong>{" "}
-        {copy.priorityCounts.high}
+        <strong className="font-mono font-semibold text-muted">{counts.high}</strong>{" "}
+        <span className="text-verified-ink">{copy.priorityCounts.high}</span>
       </span>
       <span className="text-border-strong">·</span>
       <span>
-        <strong className="font-mono font-semibold text-foreground">{counts.medium}</strong>{" "}
-        {copy.priorityCounts.medium}
+        <strong className="font-mono font-semibold text-muted">{counts.medium}</strong>{" "}
+        <span className="text-amber-700">{copy.priorityCounts.medium}</span>
       </span>
       <span className="text-border-strong">·</span>
       <span>
         <strong className="font-mono font-semibold text-muted">{counts.low}</strong>{" "}
-        {copy.priorityCounts.low}
+        <span className="text-muted">{copy.priorityCounts.low}</span>
       </span>
       <span className="text-border-strong">·</span>
       <span>
-        <strong className="font-mono font-semibold text-accent-ink">{gapCount}</strong>{" "}
-        {gapCount === 1
-          ? copy.priorityCounts.networkGapSingular
-          : copy.priorityCounts.networkGapPlural}
+        <strong className="font-mono font-semibold text-muted">{gapCount}</strong>{" "}
+        <span className="text-accent-ink">
+          {gapCount === 1
+            ? copy.priorityCounts.networkGapSingular
+            : copy.priorityCounts.networkGapPlural}
+        </span>
       </span>
     </div>
   );
@@ -817,7 +819,6 @@ function ResultsTable({
           </thead>
           <tbody className="divide-y divide-border">
             {rows.map((r, i) => {
-              const isNetworkGap = priorityFor(r) === "network-gap";
               return (
                 <tr key={i} className="align-top hover:bg-surface-muted">
                   <td className="px-4 py-3">
@@ -865,15 +866,13 @@ function ResultsTable({
                     </ol>
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {!isNetworkGap && (
-                      <button
-                        type="button"
-                        onClick={() => onDraft(r)}
-                        className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-transparent px-3 text-xs font-medium text-muted transition-colors hover:border-border-strong hover:text-foreground"
-                      >
-                        {copy.draftIntro}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => onDraft(r)}
+                      className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-transparent px-3 text-xs font-medium text-muted transition-colors hover:border-border-strong hover:text-foreground"
+                    >
+                      {copy.draftIntro}
+                    </button>
                   </td>
                 </tr>
               );
