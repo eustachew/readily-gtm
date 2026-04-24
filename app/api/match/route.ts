@@ -98,7 +98,7 @@ async function scoreConnections(params: {
   if (params.people.length === 0 || params.advisors.length === 0) return [];
 
   const response = await client.messages.create({
-    model: "claude-sonnet-4-6",
+    model: "claude-haiku-4-5-20251001",
     max_tokens: 4096,
     system: CONNECTIONS_SYSTEM_PROMPT,
     tools: [

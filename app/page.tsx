@@ -20,6 +20,47 @@ type DraftContext = {
   advisors: Advisor[];
 };
 
+const CACHE_PREFIX = "match_cache_";
+
+async function hashInputs(advisors: string, targets: string): Promise<string> {
+  const normalized = `${advisors.trim().toLowerCase()}|||${targets.trim().toLowerCase()}`;
+  const buf = await crypto.subtle.digest(
+    "SHA-1",
+    new TextEncoder().encode(normalized),
+  );
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+function readCache(hash: string): MatchResponse | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(`${CACHE_PREFIX}${hash}`);
+    return raw ? (JSON.parse(raw) as MatchResponse) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(hash: string, data: MatchResponse) {
+  try {
+    localStorage.setItem(`${CACHE_PREFIX}${hash}`, JSON.stringify(data));
+  } catch {
+    // storage full or blocked — silent fail
+  }
+}
+
+function clearCacheEntry(hash: string) {
+  try {
+    localStorage.removeItem(`${CACHE_PREFIX}${hash}`);
+  } catch {
+    // ignore
+  }
+}
+
+type CacheInfo = { fromCache: boolean; hash: string };
+
 export default function Home() {
   const [advisorsText, setAdvisorsText] = useState("");
   const [targetsText, setTargetsText] = useState("");
@@ -28,13 +69,23 @@ export default function Home() {
   const [notes, setNotes] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [draftCtx, setDraftCtx] = useState<DraftContext | null>(null);
+  const [cacheInfo, setCacheInfo] = useState<CacheInfo | null>(null);
 
   async function handleSubmit() {
     setError(null);
     setLoading(true);
     setMatches(null);
     setNotes(undefined);
+    setCacheInfo(null);
     try {
+      const hash = await hashInputs(advisorsText, targetsText);
+      const cached = readCache(hash);
+      if (cached) {
+        setMatches(cached.matches);
+        setNotes(cached.notes);
+        setCacheInfo({ fromCache: true, hash });
+        return;
+      }
       const res = await fetch("/api/match", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -50,11 +101,19 @@ export default function Home() {
       const data = (await res.json()) as MatchResponse;
       setMatches(data.matches);
       setNotes(data.notes);
+      writeCache(hash, data);
+      setCacheInfo({ fromCache: false, hash });
     } catch (e) {
       setError(e instanceof Error ? e.message : copy.error);
     } finally {
       setLoading(false);
     }
+  }
+
+  function handleClearCache() {
+    if (!cacheInfo) return;
+    clearCacheEntry(cacheInfo.hash);
+    handleSubmit();
   }
 
   const canSubmit = advisorsText.trim() && targetsText.trim() && !loading;
@@ -118,6 +177,20 @@ export default function Home() {
       {notes && (
         <div className="rounded-md border border-border bg-surface-muted px-4 py-3 text-sm text-foreground">
           {notes}
+        </div>
+      )}
+
+      {cacheInfo?.fromCache && matches && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>{copy.cacheBanner}</span>
+          <span className="text-border-strong">·</span>
+          <button
+            type="button"
+            onClick={handleClearCache}
+            className="underline-offset-2 hover:text-foreground hover:underline"
+          >
+            {copy.cacheClear}
+          </button>
         </div>
       )}
 
@@ -287,12 +360,12 @@ function verifiabilityTone(level: Verifiability): string {
 type Priority = "high" | "medium" | "low" | "network-gap";
 
 function priorityFor(row: PersonRow): Priority {
-  const hasViablePath = row.paths.some((p) => p.connectionStrength > 15);
-  if (!hasViablePath) return "network-gap";
-  if (row.bestScore >= 50) {
+  const bestDisplay = displayScore(row.bestScore);
+  if (bestDisplay < 25) return "network-gap";
+  if (row.bestScore >= 35) {
     return row.verifiability === "inferred" ? "medium" : "high";
   }
-  if (row.bestScore >= 25) return "medium";
+  if (row.bestScore >= 18) return "medium";
   return "low";
 }
 

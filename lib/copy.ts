@@ -16,6 +16,9 @@ export const copy = {
   submit: "Find warm intros",
   submitting: "Searching public signals…",
 
+  cacheBanner: "Cached from earlier run",
+  cacheClear: "Clear cache",
+
   loadingMessages: {
     finding: (target: string) =>
       `Finding compliance decision-makers at ${target}…`,
