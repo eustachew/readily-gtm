@@ -16,6 +16,13 @@ export const copy = {
   submit: "Find warm intros",
   submitting: "Searching public signals…",
 
+  loadingMessages: {
+    finding: (target: string) =>
+      `Finding compliance decision-makers at ${target}…`,
+    scoring: (target: string) => `Scoring connections at ${target}…`,
+    verifying: (target: string) => `Verifying profiles at ${target}…`,
+  },
+
   exportCsv: "Export CSV",
   emptyState: "Results will appear here.",
   emptyResultsTitle: "No verifiable contacts found",

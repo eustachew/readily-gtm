@@ -124,6 +124,7 @@ export default function Home() {
       <ResultsTable
         matches={matches}
         loading={loading}
+        targets={parseTargets(targetsText).map((t) => t.organization)}
         onDraft={(row) =>
           setDraftCtx({
             row,
@@ -767,21 +768,46 @@ function DraftBlock({ heading, body }: { heading: string; body: string }) {
   );
 }
 
+function LoadingIndicator({ targets }: { targets: string[] }) {
+  const messages =
+    targets.length === 0
+      ? [copy.submitting]
+      : [
+          ...targets.map((t) => copy.loadingMessages.finding(t)),
+          ...targets.map((t) => copy.loadingMessages.scoring(t)),
+          ...targets.map((t) => copy.loadingMessages.verifying(t)),
+        ];
+
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    if (messages.length <= 1) return;
+    const id = setInterval(
+      () => setIdx((i) => (i + 1) % messages.length),
+      2200,
+    );
+    return () => clearInterval(id);
+  }, [messages.length]);
+
+  return (
+    <div className="rounded-md border border-border bg-surface px-4 py-10 text-center text-sm text-muted-foreground">
+      {messages[idx]}
+    </div>
+  );
+}
+
 function ResultsTable({
   matches,
   loading,
+  targets,
   onDraft,
 }: {
   matches: Match[] | null;
   loading: boolean;
+  targets: string[];
   onDraft: (row: PersonRow) => void;
 }) {
   if (loading) {
-    return (
-      <div className="rounded-md border border-border bg-surface px-4 py-10 text-center text-sm text-muted-foreground">
-        {copy.submitting}
-      </div>
-    );
+    return <LoadingIndicator targets={targets} />;
   }
   if (matches === null) {
     return (
