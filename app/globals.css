@@ -1,26 +1,88 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Foundation — warm off-white, near-black ink. */
+  --background: #faf9f6;
+  --foreground: #1a1a1a;
+  --muted: #5c5853;
+  --muted-foreground: #94908a;
+  --border: #e6e3dd;
+  --border-strong: #d4d0c8;
+  --surface: #ffffff;
+  --surface-muted: #f3f1ec;
+
+  /* One accent — rust. Used for the primary CTA and for network-gap. */
+  --accent: #9a4a2c;
+  --accent-hover: #80401e;
+  --accent-soft: #f4e7dd;
+  --accent-ring: #e2c5b2;
+  --accent-ink: #5c2a17;
+
+  /* Status hues — muted, never neon. */
+  --verified: #2d5a3d;
+  --verified-soft: #e6ede0;
+  --verified-ring: #c1d3b8;
+  --verified-ink: #1b3823;
+
+  --likely: #3a5b7e;
+  --likely-soft: #e3e9f0;
+  --likely-ring: #bbc7d6;
+  --likely-ink: #22395a;
+
+  --inferred: #78716c;
+  --inferred-soft: #efedea;
+  --inferred-ring: #d4d0cb;
+  --inferred-ink: #3f3a36;
+
+  /* Network gap aliases the accent — structurally different state. */
+  --network-gap: var(--accent);
+  --network-gap-soft: var(--accent-soft);
+  --network-gap-ring: var(--accent-ring);
+  --network-gap-ink: var(--accent-ink);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ring: var(--accent-ring);
+  --color-accent-ink: var(--accent-ink);
+
+  --color-verified: var(--verified);
+  --color-verified-soft: var(--verified-soft);
+  --color-verified-ring: var(--verified-ring);
+  --color-verified-ink: var(--verified-ink);
+
+  --color-likely: var(--likely);
+  --color-likely-soft: var(--likely-soft);
+  --color-likely-ring: var(--likely-ring);
+  --color-likely-ink: var(--likely-ink);
+
+  --color-inferred: var(--inferred);
+  --color-inferred-soft: var(--inferred-soft);
+  --color-inferred-ring: var(--inferred-ring);
+  --color-inferred-ink: var(--inferred-ink);
+
+  --color-network-gap: var(--network-gap);
+  --color-network-gap-soft: var(--network-gap-soft);
+  --color-network-gap-ring: var(--network-gap-ring);
+  --color-network-gap-ink: var(--network-gap-ink);
+
+  --font-sans: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, monospace;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
 }

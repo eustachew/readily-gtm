@@ -62,8 +62,10 @@ export default function Home() {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-12">
       <header className="flex flex-col gap-2">
-        <h1 className="text-3xl font-semibold tracking-tight">{copy.appTitle}</h1>
-        <p className="max-w-2xl text-sm text-zinc-600">{copy.appSubtitle}</p>
+        <h1 className="font-serif text-4xl font-normal leading-none tracking-tight text-foreground">
+          {copy.appTitle}
+        </h1>
+        <p className="max-w-2xl text-sm text-muted">{copy.appSubtitle}</p>
       </header>
 
       <section className="grid gap-6 md:grid-cols-2">
@@ -90,7 +92,7 @@ export default function Home() {
           type="button"
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="inline-flex h-10 items-center justify-center rounded-md bg-zinc-900 px-4 text-sm font-medium text-white transition-colors hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-10 items-center justify-center rounded-md bg-accent px-4 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loading ? copy.submitting : copy.submit}
         </button>
@@ -100,7 +102,7 @@ export default function Home() {
             onClick={() =>
               downloadCsv("warm-intros.csv", matchesToCsv(matches))
             }
-            className="inline-flex h-10 items-center justify-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-900 transition-colors hover:bg-zinc-50"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-border-strong bg-surface px-4 text-sm font-medium text-foreground transition-colors hover:bg-surface-muted"
           >
             {copy.exportCsv}
           </button>
@@ -108,13 +110,13 @@ export default function Home() {
       </div>
 
       {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+        <div className="rounded-md border border-accent-ring bg-accent-soft px-4 py-3 text-sm text-accent-ink">
           {error}
         </div>
       )}
 
       {notes && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="rounded-md border border-border bg-surface-muted px-4 py-3 text-sm text-foreground">
           {notes}
         </div>
       )}
@@ -175,13 +177,13 @@ function InputCard({
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
-          <label className="text-sm font-medium text-zinc-900">{label}</label>
-          <span className="text-xs text-zinc-500">{hint}</span>
+          <label className="text-sm font-medium text-foreground">{label}</label>
+          <span className="text-xs text-muted-foreground">{hint}</span>
         </div>
         <button
           type="button"
           onClick={() => fileInput.current?.click()}
-          className="text-xs font-medium text-zinc-600 underline underline-offset-2 hover:text-zinc-900"
+          className="text-xs font-medium text-muted underline underline-offset-2 hover:text-foreground"
         >
           {copy.uploadCsv}
         </button>
@@ -202,7 +204,7 @@ function InputCard({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         rows={8}
-        className="min-h-[180px] w-full resize-y rounded-md border border-zinc-300 bg-white px-3 py-2 font-mono text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-900 focus:outline-none"
+        className="min-h-[180px] w-full resize-y rounded-md border border-border-strong bg-surface px-3 py-2 font-mono text-sm text-foreground placeholder:text-muted-foreground focus:border-foreground focus:outline-none"
       />
     </div>
   );
@@ -276,9 +278,9 @@ function displayScore(raw: number): number {
 }
 
 function verifiabilityTone(level: Verifiability): string {
-  if (level === "verified") return "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200";
-  if (level === "likely") return "bg-sky-50 text-sky-900 ring-1 ring-sky-200";
-  return "bg-zinc-100 text-zinc-700 ring-1 ring-zinc-200";
+  if (level === "verified") return "bg-verified-soft text-verified-ink ring-1 ring-verified-ring";
+  if (level === "likely") return "bg-likely-soft text-likely-ink ring-1 ring-likely-ring";
+  return "bg-inferred-soft text-inferred-ink ring-1 ring-inferred-ring";
 }
 
 type Priority = "high" | "medium" | "low" | "network-gap";
@@ -301,10 +303,10 @@ function priorityLabel(p: Priority): string {
 }
 
 function priorityTone(p: Priority): string {
-  if (p === "high") return "bg-emerald-50 text-emerald-900 ring-1 ring-emerald-200";
-  if (p === "medium") return "bg-amber-50 text-amber-900 ring-1 ring-amber-200";
-  if (p === "low") return "bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200";
-  return "bg-violet-50 text-violet-900 ring-1 ring-violet-200";
+  if (p === "high") return "bg-verified-soft text-verified-ink ring-1 ring-verified-ring";
+  if (p === "medium") return "bg-surface-muted text-foreground ring-1 ring-border-strong";
+  if (p === "low") return "bg-surface-muted text-muted ring-1 ring-border";
+  return "bg-accent-soft text-accent-ink ring-1 ring-accent-ring";
 }
 
 function icpTier(icpFit: number): "Primary" | "Secondary" | "Weak" {
@@ -343,7 +345,7 @@ function HoverPopover({
       {trigger}
       <div
         role="tooltip"
-        className={`invisible absolute left-0 top-full z-20 mt-1 ${widthClass} rounded-md border border-zinc-200 bg-white p-3 text-left opacity-0 shadow-lg transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100`}
+        className={`invisible absolute left-0 top-full z-20 mt-1 ${widthClass} rounded-md border border-border-strong bg-surface p-3 text-left opacity-0 transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100`}
       >
         {children}
       </div>
@@ -357,30 +359,30 @@ function ScoreBreakdown({ row, path }: { row: PersonRow; path: Path }) {
   return (
     <dl className="flex flex-col gap-2 text-xs leading-relaxed">
       <div>
-        <dt className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+        <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
           {copy.scorePopover.icpLabel}
         </dt>
-        <dd className="text-zinc-800">
+        <dd className="text-foreground">
           <span className="font-medium">{icpTierLabel(tier)}</span>
-          <span className="text-zinc-500"> — {row.targetRole}, {icpDescription(rank)}</span>
+          <span className="text-muted"> — {row.targetRole}, {icpDescription(rank)}</span>
         </dd>
       </div>
       <div>
-        <dt className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+        <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
           {copy.scorePopover.connectionLabel}
         </dt>
-        <dd className="text-zinc-800">
-          <span className="font-medium">{path.connectionStrength} / 100</span>
-          <span className="text-zinc-500"> — {path.rationale}</span>
+        <dd className="text-foreground">
+          <span className="font-mono font-medium">{path.connectionStrength} / 100</span>
+          <span className="text-muted"> — {path.rationale}</span>
         </dd>
       </div>
       <div>
-        <dt className="text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+        <dt className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
           {copy.scorePopover.verifiabilityLabel}
         </dt>
-        <dd className="text-zinc-800">
+        <dd className="text-foreground">
           <span className="font-medium">{copy.verifiability[row.verifiability]}</span>
-          <span className="text-zinc-500"> — {copy.scorePopover.verifiabilityDescriptions[row.verifiability]}</span>
+          <span className="text-muted"> — {copy.scorePopover.verifiabilityDescriptions[row.verifiability]}</span>
         </dd>
       </div>
     </dl>
@@ -395,7 +397,7 @@ function ScorePill({ row, path }: { row: PersonRow; path: Path }) {
       trigger={
         <span
           tabIndex={0}
-          className="inline-flex min-w-[2rem] cursor-help justify-center rounded-md bg-zinc-100 px-1.5 py-0.5 font-mono text-xs font-medium text-zinc-600 ring-1 ring-zinc-200 focus:outline-none focus:ring-zinc-400"
+          className="inline-flex min-w-[2rem] cursor-help justify-center rounded-md bg-surface-muted px-1.5 py-0.5 font-mono text-xs font-medium text-foreground ring-1 ring-border focus:outline-none focus:ring-border-strong"
         >
           {shown}
         </span>
@@ -426,7 +428,7 @@ function PriorityCell({
         {p !== "network-gap" && <ScorePill row={row} path={best} />}
       </div>
       {p === "network-gap" ? (
-        <p className="text-xs italic text-violet-800">
+        <p className="font-serif text-xs italic text-accent-ink">
           {copy.networkGapPhrase(
             row.suggestedAdvisorArchetype ??
               copy.networkGapFallbackArchetype,
@@ -436,7 +438,7 @@ function PriorityCell({
         <button
           type="button"
           onClick={() => onDraft(row)}
-          className="self-start text-xs font-medium text-zinc-600 underline-offset-2 hover:text-zinc-900 hover:underline"
+          className="self-start text-xs font-medium text-muted underline-offset-2 hover:text-foreground hover:underline"
         >
           {copy.draftIntro} →
         </button>
@@ -450,24 +452,24 @@ function PriorityCounts({ rows }: { rows: PersonRow[] }) {
   for (const r of rows) counts[priorityFor(r)] += 1;
   const gapCount = counts["network-gap"];
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
       <span>
-        <strong className="font-semibold text-emerald-900">{counts.high}</strong>{" "}
+        <strong className="font-mono font-semibold text-verified-ink">{counts.high}</strong>{" "}
         {copy.priorityCounts.high}
       </span>
-      <span className="text-zinc-300">·</span>
+      <span className="text-border-strong">·</span>
       <span>
-        <strong className="font-semibold text-amber-900">{counts.medium}</strong>{" "}
+        <strong className="font-mono font-semibold text-foreground">{counts.medium}</strong>{" "}
         {copy.priorityCounts.medium}
       </span>
-      <span className="text-zinc-300">·</span>
+      <span className="text-border-strong">·</span>
       <span>
-        <strong className="font-semibold text-zinc-600">{counts.low}</strong>{" "}
+        <strong className="font-mono font-semibold text-muted">{counts.low}</strong>{" "}
         {copy.priorityCounts.low}
       </span>
-      <span className="text-zinc-300">·</span>
+      <span className="text-border-strong">·</span>
       <span>
-        <strong className="font-semibold text-violet-900">{gapCount}</strong>{" "}
+        <strong className="font-mono font-semibold text-accent-ink">{gapCount}</strong>{" "}
         {gapCount === 1
           ? copy.priorityCounts.networkGapSingular
           : copy.priorityCounts.networkGapPlural}
@@ -512,7 +514,7 @@ function VerifiabilityCell({ row }: { row: PersonRow }) {
     <div className="flex items-center gap-2">
       {hasSources ? (
         <HoverPopover trigger={badge}>
-          <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-zinc-500">
+          <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
             Sources ({row.sourceUrls.length})
           </p>
           <ul className="flex flex-col gap-1">
@@ -522,7 +524,7 @@ function VerifiabilityCell({ row }: { row: PersonRow }) {
                   href={u}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block truncate text-xs text-zinc-700 underline-offset-2 hover:text-zinc-900 hover:underline"
+                  className="block truncate text-xs text-foreground underline-offset-2 hover:text-accent hover:underline"
                   title={u}
                 >
                   {domainOf(u)}
@@ -541,7 +543,7 @@ function VerifiabilityCell({ row }: { row: PersonRow }) {
         className={`inline-flex size-5 items-center justify-center rounded transition-colors ${
           row.targetLinkedInVerified
             ? "text-[#0A66C2] hover:text-[#004182]"
-            : "text-zinc-300 hover:text-zinc-500"
+            : "text-border-strong hover:text-muted-foreground"
         }`}
         title={
           row.targetLinkedInVerified
@@ -627,15 +629,15 @@ function DraftModal({
       onClick={onClose}
     >
       <div
-        className="relative flex max-h-[85vh] w-full max-w-2xl flex-col gap-5 overflow-y-auto rounded-lg bg-white p-6 shadow-xl"
+        className="relative flex max-h-[85vh] w-full max-w-2xl flex-col gap-5 overflow-y-auto rounded-lg border border-border-strong bg-surface p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-start justify-between gap-4">
           <div className="flex flex-col">
-            <h2 className="text-lg font-semibold tracking-tight">
+            <h2 className="font-serif text-2xl font-normal tracking-tight text-foreground">
               {copy.draftModal.title}
             </h2>
-            <p className="text-xs text-zinc-500">
+            <p className="text-xs text-muted-foreground">
               {copy.draftModal.subtitleTemplate(
                 ctx.path.advisorName,
                 ctx.row.targetName,
@@ -645,7 +647,7 @@ function DraftModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-sm text-zinc-500 hover:text-zinc-900"
+            className="text-sm text-muted hover:text-foreground"
             aria-label="Close"
           >
             {copy.draftModal.close}
@@ -654,7 +656,7 @@ function DraftModal({
 
         {ctx.advisors.length > 0 && (
           <div className="flex items-center gap-2 text-xs">
-            <label htmlFor="sender-select" className="text-zinc-500">
+            <label htmlFor="sender-select" className="text-muted-foreground">
               Send from:
             </label>
             <select
@@ -662,7 +664,7 @@ function DraftModal({
               value={senderName}
               onChange={(e) => setSenderName(e.target.value)}
               disabled={loading}
-              className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-900 focus:border-zinc-900 focus:outline-none disabled:opacity-50"
+              className="rounded-md border border-border-strong bg-surface px-2 py-1 text-xs text-foreground focus:border-foreground focus:outline-none disabled:opacity-50"
             >
               {ctx.advisors.map((a) => (
                 <option key={a.name} value={a.name}>
@@ -670,25 +672,25 @@ function DraftModal({
                 </option>
               ))}
             </select>
-            <span className="text-zinc-400">
+            <span className="text-muted-foreground">
               · signoff: {firstNameOf(senderName)}
             </span>
           </div>
         )}
 
         {loading && (
-          <div className="rounded-md border border-zinc-200 bg-zinc-50 px-4 py-8 text-center text-sm text-zinc-500">
+          <div className="rounded-md border border-border bg-surface-muted px-4 py-8 text-center text-sm text-muted-foreground">
             {copy.draftModal.loading}
           </div>
         )}
 
         {draftError && (
-          <div className="flex items-center justify-between rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <div className="flex items-center justify-between rounded-md border border-accent-ring bg-accent-soft px-4 py-3 text-sm text-accent-ink">
             <span>{draftError}</span>
             <button
               type="button"
               onClick={run}
-              className="rounded-md border border-red-300 bg-white px-3 py-1 text-xs font-medium text-red-800 hover:bg-red-100"
+              className="rounded-md border border-accent-ring bg-surface px-3 py-1 text-xs font-medium text-accent-ink hover:bg-surface-muted"
             >
               {copy.draftModal.retry}
             </button>
@@ -709,7 +711,7 @@ function DraftModal({
               <button
                 type="button"
                 onClick={run}
-                className="text-xs font-medium text-zinc-600 underline-offset-2 hover:text-zinc-900 hover:underline"
+                className="text-xs font-medium text-muted underline-offset-2 hover:text-foreground hover:underline"
               >
                 {copy.draftModal.retry}
               </button>
@@ -737,18 +739,18 @@ function DraftBlock({ heading, body }: { heading: string; body: string }) {
   return (
     <section className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {heading}
         </h3>
         <button
           type="button"
           onClick={onCopy}
-          className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-900 transition-colors hover:bg-zinc-50"
+          className="rounded-md border border-border-strong bg-surface px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-surface-muted"
         >
           {copied ? copy.draftModal.copied : copy.draftModal.copy}
         </button>
       </div>
-      <pre className="whitespace-pre-wrap rounded-md border border-zinc-200 bg-zinc-50 px-4 py-3 font-sans text-sm leading-relaxed text-zinc-900">
+      <pre className="whitespace-pre-wrap rounded-md border border-border bg-surface-muted px-4 py-3 font-sans text-sm leading-relaxed text-foreground">
         {body}
       </pre>
     </section>
@@ -766,25 +768,25 @@ function ResultsTable({
 }) {
   if (loading) {
     return (
-      <div className="rounded-md border border-zinc-200 bg-white px-4 py-10 text-center text-sm text-zinc-500">
+      <div className="rounded-md border border-border bg-surface px-4 py-10 text-center text-sm text-muted-foreground">
         {copy.submitting}
       </div>
     );
   }
   if (matches === null) {
     return (
-      <div className="rounded-md border border-dashed border-zinc-300 bg-white px-4 py-10 text-center text-sm text-zinc-500">
+      <div className="rounded-md border border-dashed border-border-strong bg-surface px-4 py-10 text-center text-sm text-muted-foreground">
         {copy.emptyState}
       </div>
     );
   }
   if (matches.length === 0) {
     return (
-      <div className="rounded-md border border-zinc-200 bg-white px-4 py-8 text-center">
-        <p className="text-sm font-medium text-zinc-900">
+      <div className="rounded-md border border-border bg-surface px-4 py-8 text-center">
+        <p className="text-sm font-medium text-foreground">
           {copy.emptyResultsTitle}
         </p>
-        <p className="mt-1 text-sm text-zinc-500">{copy.emptyResultsBody}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{copy.emptyResultsBody}</p>
       </div>
     );
   }
@@ -792,9 +794,9 @@ function ResultsTable({
   return (
     <div className="flex flex-col gap-3">
       <PriorityCounts rows={rows} />
-      <div className="rounded-md border border-zinc-200 bg-white">
+      <div className="rounded-md border border-border bg-surface">
         <table className="w-full text-left text-sm">
-          <thead className="bg-zinc-50 text-xs uppercase tracking-wide text-zinc-500">
+          <thead className="bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-4 py-3 font-medium">{copy.columns.targetOrg}</th>
               <th className="px-4 py-3 font-medium">{copy.columns.targetName}</th>
@@ -804,17 +806,17 @@ function ResultsTable({
               <th className="px-4 py-3 font-medium">{copy.columns.priority}</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-100">
+          <tbody className="divide-y divide-border">
             {rows.map((r, i) => (
-              <tr key={i} className="align-top hover:bg-zinc-50">
-                <td className="px-4 py-3 text-zinc-700">{r.targetOrganization}</td>
+              <tr key={i} className="align-top hover:bg-surface-muted">
+                <td className="px-4 py-3 text-foreground">{r.targetOrganization}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-col gap-0.5">
                     <a
                       href={r.targetLinkedIn}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="font-medium text-zinc-900 underline-offset-2 hover:underline"
+                      className="font-medium text-foreground underline-offset-2 hover:underline"
                       title={
                         r.targetLinkedInVerified
                           ? "Verified LinkedIn profile"
@@ -823,20 +825,20 @@ function ResultsTable({
                     >
                       {r.targetName}
                     </a>
-                    <span className="text-xs text-zinc-500">{r.targetRole}</span>
+                    <span className="text-xs text-muted-foreground">{r.targetRole}</span>
                   </div>
                 </td>
                 <td className="px-4 py-3">
                   <VerifiabilityCell row={r} />
                 </td>
-                <td className="px-4 py-3 text-xs leading-relaxed text-zinc-600">
+                <td className="px-4 py-3 text-xs leading-relaxed text-muted">
                   <p>{r.bestRationale}</p>
                 </td>
                 <td className="px-4 py-3">
-                  <ul className="flex flex-col gap-0.5 text-xs text-zinc-700">
+                  <ul className="flex flex-col gap-0.5 text-xs text-foreground">
                     {r.paths.map((p) => (
                       <li key={p.advisorName} className="flex items-center gap-1.5">
-                        <span className="font-mono text-[10px] text-zinc-400">
+                        <span className="font-mono text-[10px] text-muted-foreground">
                           {p.connectionStrength}
                         </span>
                         <span>{p.advisorName}</span>
