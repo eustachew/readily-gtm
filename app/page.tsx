@@ -378,8 +378,8 @@ function priorityLabel(p: Priority): string {
 
 function priorityTone(p: Priority): string {
   if (p === "high") return "bg-verified-soft text-verified-ink ring-1 ring-verified-ring";
-  if (p === "medium") return "bg-surface-muted text-foreground ring-1 ring-border-strong";
-  if (p === "low") return "bg-surface-muted text-muted ring-1 ring-border";
+  if (p === "medium") return "bg-amber-50 text-amber-800 ring-1 ring-amber-200";
+  if (p === "low") return "bg-zinc-100 text-zinc-600 ring-1 ring-zinc-200";
   return "bg-accent-soft text-accent-ink ring-1 ring-accent-ring";
 }
 
@@ -511,7 +511,7 @@ function PriorityCell({ row }: { row: PersonRow }) {
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
         <span
-          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${priorityTone(p)}`}
+          className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium leading-none ${priorityTone(p)}`}
         >
           {priorityLabel(p)}
         </span>

@@ -43,10 +43,10 @@ export const copy = {
   },
 
   priority: {
-    high: "High priority",
-    medium: "Medium priority",
-    low: "Low priority",
-    networkGap: "Network gap",
+    high: "High",
+    medium: "Medium",
+    low: "Low",
+    networkGap: "Gap",
   },
 
   priorityCounts: {
