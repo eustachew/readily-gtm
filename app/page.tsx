@@ -1,7 +1,7 @@
 "use client";
 
 import Papa from "papaparse";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { copy } from "@/lib/copy";
 import { downloadCsv, matchesToCsv } from "@/lib/csv";
 import { advisorsToText, parseAdvisors, parseTargets, targetsToText } from "@/lib/parse";
@@ -62,7 +62,7 @@ export default function Home() {
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-12">
       <header className="flex flex-col gap-2">
-        <h1 className="font-serif text-4xl font-normal leading-none tracking-tight text-foreground">
+        <h1 className="text-4xl font-semibold leading-none tracking-tight text-foreground">
           {copy.appTitle}
         </h1>
         <p className="max-w-2xl text-sm text-muted">{copy.appSubtitle}</p>
@@ -102,7 +102,7 @@ export default function Home() {
             onClick={() =>
               downloadCsv("warm-intros.csv", matchesToCsv(matches))
             }
-            className="inline-flex h-10 items-center justify-center rounded-md border border-border-strong bg-surface px-4 text-sm font-medium text-foreground transition-colors hover:bg-surface-muted"
+            className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-transparent px-4 text-sm font-medium text-muted transition-colors hover:border-border-strong hover:text-foreground"
           >
             {copy.exportCsv}
           </button>
@@ -331,21 +331,42 @@ function icpDescription(rank: PersonaRank): string {
   return d.none;
 }
 
+const POPOVER_COLLISION_PADDING = 16;
+
 function HoverPopover({
   trigger,
   children,
   widthClass = "w-64",
+  widthPx = 256,
 }: {
   trigger: ReactNode;
   children: ReactNode;
   widthClass?: string;
+  widthPx?: number;
 }) {
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const [alignRight, setAlignRight] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = anchorRef.current;
+    if (!el) return;
+    const check = () => {
+      const rect = el.getBoundingClientRect();
+      const overflowsRight =
+        rect.left + widthPx + POPOVER_COLLISION_PADDING > window.innerWidth;
+      setAlignRight(overflowsRight);
+    };
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, [widthPx]);
+
   return (
-    <div className="group relative inline-block">
+    <div ref={anchorRef} className="group relative inline-block">
       {trigger}
       <div
         role="tooltip"
-        className={`invisible absolute left-0 top-full z-20 mt-1 ${widthClass} rounded-md border border-border-strong bg-surface p-3 text-left opacity-0 transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100`}
+        className={`invisible absolute top-full z-20 mt-1 ${widthClass} ${alignRight ? "right-0" : "left-0"} rounded-md border border-border-strong bg-surface p-3 text-left opacity-0 transition-opacity group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100`}
       >
         {children}
       </div>
@@ -394,6 +415,7 @@ function ScorePill({ row, path }: { row: PersonRow; path: Path }) {
   return (
     <HoverPopover
       widthClass="w-80"
+      widthPx={320}
       trigger={
         <span
           tabIndex={0}
@@ -428,7 +450,7 @@ function PriorityCell({
         {p !== "network-gap" && <ScorePill row={row} path={best} />}
       </div>
       {p === "network-gap" ? (
-        <p className="font-serif text-xs italic text-accent-ink">
+        <p className="text-xs text-accent-ink">
           {copy.networkGapPhrase(
             row.suggestedAdvisorArchetype ??
               copy.networkGapFallbackArchetype,
@@ -634,7 +656,7 @@ function DraftModal({
       >
         <header className="flex items-start justify-between gap-4">
           <div className="flex flex-col">
-            <h2 className="font-serif text-2xl font-normal tracking-tight text-foreground">
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
               {copy.draftModal.title}
             </h2>
             <p className="text-xs text-muted-foreground">
@@ -796,19 +818,22 @@ function ResultsTable({
       <PriorityCounts rows={rows} />
       <div className="rounded-md border border-border bg-surface">
         <table className="w-full text-left text-sm">
-          <thead className="bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
+          <thead className="border-b border-border-strong bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
+              <th className="px-4 py-3 font-medium">{copy.columns.priority}</th>
               <th className="px-4 py-3 font-medium">{copy.columns.targetOrg}</th>
               <th className="px-4 py-3 font-medium">{copy.columns.targetName}</th>
               <th className="px-4 py-3 font-medium">{copy.columns.verifiability}</th>
               <th className="px-4 py-3 font-medium">{copy.columns.reasoning}</th>
-              <th className="px-4 py-3 font-medium">{copy.columns.reachableVia}</th>
-              <th className="px-4 py-3 font-medium">{copy.columns.priority}</th>
+              <th className="px-4 py-3 font-medium">{copy.columns.bestPath}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {rows.map((r, i) => (
               <tr key={i} className="align-top hover:bg-surface-muted">
+                <td className="px-4 py-3">
+                  <PriorityCell row={r} onDraft={onDraft} />
+                </td>
                 <td className="px-4 py-3 text-foreground">{r.targetOrganization}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-col gap-0.5">
@@ -837,17 +862,9 @@ function ResultsTable({
                 <td className="px-4 py-3">
                   <ul className="flex flex-col gap-0.5 text-xs text-foreground">
                     {r.paths.map((p) => (
-                      <li key={p.advisorName} className="flex items-center gap-1.5">
-                        <span className="font-mono text-[10px] text-muted-foreground">
-                          {p.connectionStrength}
-                        </span>
-                        <span>{p.advisorName}</span>
-                      </li>
+                      <li key={p.advisorName}>{p.advisorName}</li>
                     ))}
                   </ul>
-                </td>
-                <td className="px-4 py-3">
-                  <PriorityCell row={r} onDraft={onDraft} />
                 </td>
               </tr>
             ))}

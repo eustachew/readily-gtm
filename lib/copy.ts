@@ -29,7 +29,7 @@ export const copy = {
     targetName: "Contact",
     verifiability: "Evidence",
     reasoning: "Why",
-    reachableVia: "Reachable via",
+    bestPath: "Best path",
   },
 
   priority: {
