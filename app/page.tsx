@@ -430,13 +430,7 @@ function ScorePill({ row, path }: { row: PersonRow; path: Path }) {
   );
 }
 
-function PriorityCell({
-  row,
-  onDraft,
-}: {
-  row: PersonRow;
-  onDraft: (row: PersonRow) => void;
-}) {
+function PriorityCell({ row }: { row: PersonRow }) {
   const p = priorityFor(row);
   const best = row.paths[0];
   return (
@@ -449,21 +443,13 @@ function PriorityCell({
         </span>
         {p !== "network-gap" && <ScorePill row={row} path={best} />}
       </div>
-      {p === "network-gap" ? (
+      {p === "network-gap" && (
         <p className="text-xs text-accent-ink">
           {copy.networkGapPhrase(
             row.suggestedAdvisorArchetype ??
               copy.networkGapFallbackArchetype,
           )}
         </p>
-      ) : (
-        <button
-          type="button"
-          onClick={() => onDraft(row)}
-          className="self-start text-xs font-medium text-muted underline-offset-2 hover:text-foreground hover:underline"
-        >
-          {copy.draftIntro} →
-        </button>
       )}
     </div>
   );
@@ -826,48 +812,72 @@ function ResultsTable({
               <th className="px-4 py-3 font-medium">{copy.columns.verifiability}</th>
               <th className="px-4 py-3 font-medium">{copy.columns.reasoning}</th>
               <th className="px-4 py-3 font-medium">{copy.columns.bestPath}</th>
+              <th className="px-4 py-3 font-medium" />
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {rows.map((r, i) => (
-              <tr key={i} className="align-top hover:bg-surface-muted">
-                <td className="px-4 py-3">
-                  <PriorityCell row={r} onDraft={onDraft} />
-                </td>
-                <td className="px-4 py-3 text-foreground">{r.targetOrganization}</td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-col gap-0.5">
-                    <a
-                      href={r.targetLinkedIn}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-medium text-foreground underline-offset-2 hover:underline"
-                      title={
-                        r.targetLinkedInVerified
-                          ? "Verified LinkedIn profile"
-                          : "LinkedIn people search (profile not verified)"
-                      }
-                    >
-                      {r.targetName}
-                    </a>
-                    <span className="text-xs text-muted-foreground">{r.targetRole}</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3">
-                  <VerifiabilityCell row={r} />
-                </td>
-                <td className="px-4 py-3 text-xs leading-relaxed text-muted">
-                  <p>{r.bestRationale}</p>
-                </td>
-                <td className="px-4 py-3">
-                  <ul className="flex flex-col gap-0.5 text-xs text-foreground">
-                    {r.paths.map((p) => (
-                      <li key={p.advisorName}>{p.advisorName}</li>
-                    ))}
-                  </ul>
-                </td>
-              </tr>
-            ))}
+            {rows.map((r, i) => {
+              const isNetworkGap = priorityFor(r) === "network-gap";
+              return (
+                <tr key={i} className="align-top hover:bg-surface-muted">
+                  <td className="px-4 py-3">
+                    <PriorityCell row={r} />
+                  </td>
+                  <td className="px-4 py-3 text-foreground">{r.targetOrganization}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col gap-0.5">
+                      <a
+                        href={r.targetLinkedIn}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-foreground underline-offset-2 hover:underline"
+                        title={
+                          r.targetLinkedInVerified
+                            ? "Verified LinkedIn profile"
+                            : "LinkedIn people search (profile not verified)"
+                        }
+                      >
+                        {r.targetName}
+                      </a>
+                      <span className="text-xs text-muted-foreground">{r.targetRole}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <VerifiabilityCell row={r} />
+                  </td>
+                  <td className="px-4 py-3 text-xs leading-relaxed text-muted">
+                    <p>{r.bestRationale}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <ol className="flex flex-col gap-0.5 text-xs">
+                      {r.paths.map((p, idx) => (
+                        <li
+                          key={p.advisorName}
+                          className={`whitespace-nowrap ${
+                            idx === 0
+                              ? "font-semibold text-foreground"
+                              : "font-normal text-muted"
+                          }`}
+                        >
+                          {idx + 1}. {p.advisorName}
+                        </li>
+                      ))}
+                    </ol>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {!isNetworkGap && (
+                      <button
+                        type="button"
+                        onClick={() => onDraft(r)}
+                        className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-transparent px-3 text-xs font-medium text-muted transition-colors hover:border-border-strong hover:text-foreground"
+                      >
+                        {copy.draftIntro}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
