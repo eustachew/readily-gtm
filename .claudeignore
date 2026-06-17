@@ -1,0 +1,9 @@
+# Drawer — available if explicitly asked, but never auto-loaded into context.
+# Superseded skills, kept for reference (split into readily-icp / connection-scoring / intro-craft).
+.claude/archive/
+
+# Generated / lock files an agent never needs to read.
+.next/
+pnpm-lock.yaml
+tsconfig.tsbuildinfo
+next-env.d.ts
