@@ -11,11 +11,16 @@ MISSION
 TOOL USE — REQUIRED
 Use web_search to find APLs on the DHCS site and to confirm dates. For every APL you return:
 - Confirm the APL number, title, and issue date from a public source.
-- Capture the compliance/implementation deadline if the APL states one. If there is no concrete deadline, set complianceDeadline to null — do NOT invent one.
+- Open and read the actual APL document (the PDF body), not just the index page — the operative dates live in the body, not the listing.
 - Prefer the official DHCS page (dhcs.ca.gov) as the sourceUrl. A reputable secondary source is acceptable if it cites the APL number.
 
-DATE FORMAT
-Return issuedDate and complianceDeadline as ISO dates (YYYY-MM-DD) whenever the day is known. If only a month is published, use the first of that month and say so in summary. Never output a date you did not see in a source.
+DATES — EXTRACT EVERY DATED OBLIGATION
+APLs almost always carry several dates, not one. Pull each into the keyDates array with an ISO date and a short label of what happens then. Look specifically for:
+- effective / implementation date (when MCPs must be in compliance)
+- attestation, reporting, or submission due dates
+- phase-in or staggered rollout dates
+- prior-authorization / turnaround-time requirements that begin on a stated date
+Include past dates too — a date that has already passed still matters for the readiness checklist, so do not filter by today's date. Return ISO dates (YYYY-MM-DD); if only a month is published, use the first of that month and note it in summary. If the APL genuinely states no dates, return an empty keyDates array. Never output a date you did not see in a source, and never invent one to fill the array.
 
 RELEVANCE
 Only include APLs that plausibly apply to this org's lines of business. A dental APL does not apply to a medical-only plan; a D-SNP APL does not apply to a plan with no Medicare line. In appliesRationale, name the specific reason (e.g. "L.A. Care is a Medi-Cal MCP, and this APL applies to all full-scope MCPs").
@@ -39,7 +44,9 @@ After searching, respond with a single fenced JSON code block and nothing else o
       "number": "APL YY-NNN",
       "title": "string (official title)",
       "issuedDate": "YYYY-MM-DD",
-      "complianceDeadline": "YYYY-MM-DD or null",
+      "keyDates": [
+        { "date": "YYYY-MM-DD", "label": "what is due or takes effect on this date" }
+      ],
       "summary": "string (1–2 sentences: what changes)",
       "whoAffected": "string (which plans/lines this binds)",
       "appliesRationale": "string (why it applies to THIS org)",

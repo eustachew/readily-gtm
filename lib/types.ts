@@ -35,11 +35,17 @@ export type Match = {
   suggestedAdvisorArchetype: string | null;
 };
 
+export type AplKeyDate = {
+  date: string; // ISO YYYY-MM-DD
+  label: string; // what is due / takes effect on this date
+};
+
 export type Apl = {
   number: string; // e.g. "APL 25-012"
   title: string;
   issuedDate: string; // as published, ideally ISO (YYYY-MM-DD)
-  complianceDeadline: string | null; // ISO if a concrete deadline exists
+  keyDates: AplKeyDate[]; // every dated obligation found in the APL (past and future)
+  complianceDeadline: string | null; // derived: soonest upcoming key date — drives urgency + draft hook
   summary: string;
   whoAffected: string;
   appliesRationale: string; // why this APL applies to THIS org

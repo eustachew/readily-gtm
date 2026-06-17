@@ -15,10 +15,12 @@ import {
 import {
   aggregateOrgTimeliness,
   deriveAplVerifiability,
+  soonestUpcomingDeadline,
 } from "@/lib/timeliness";
 import type {
   Advisor,
   Apl,
+  AplKeyDate,
   Match,
   MatchResponse,
   OrgTimeliness,
@@ -26,7 +28,9 @@ import type {
   Target,
 } from "@/lib/types";
 
-const APL_LOOKBACK_MONTHS = 3;
+// Slightly wider than the 3-month brief so near-boundary triggers aren't lost; recency
+// scoring naturally fades older APLs, so a wider window adds context without inflating urgency.
+const APL_LOOKBACK_MONTHS = 4;
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -113,8 +117,9 @@ async function findPeopleForTarget(target: Target): Promise<PerTargetPeople> {
 
 async function findApplicableAplsForTarget(
   target: Target,
-  todayIso: string,
+  today: Date,
 ): Promise<PerTargetApls> {
+  const todayIso = today.toISOString().slice(0, 10);
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 3072,
@@ -157,22 +162,34 @@ async function findApplicableAplsForTarget(
             typeof (a as Apl).sourceUrl === "string" &&
             (a as Apl).sourceUrl.trim().length > 0,
         )
-        .map((a: Apl) => ({
-          number: a.number,
-          title: a.title,
-          issuedDate: typeof a.issuedDate === "string" ? a.issuedDate : "",
-          complianceDeadline:
-            typeof a.complianceDeadline === "string" &&
-            a.complianceDeadline.trim().length > 0
-              ? a.complianceDeadline
-              : null,
-          summary: typeof a.summary === "string" ? a.summary : "",
-          whoAffected: typeof a.whoAffected === "string" ? a.whoAffected : "",
-          appliesRationale:
-            typeof a.appliesRationale === "string" ? a.appliesRationale : "",
-          sourceUrl: a.sourceUrl,
-          verifiability: deriveAplVerifiability(a.sourceUrl),
-        }))
+        .map((a: Apl) => {
+          const keyDates: AplKeyDate[] = Array.isArray(a.keyDates)
+            ? a.keyDates
+                .filter(
+                  (d: unknown): d is AplKeyDate =>
+                    typeof d === "object" &&
+                    d !== null &&
+                    typeof (d as AplKeyDate).date === "string" &&
+                    (d as AplKeyDate).date.trim().length > 0 &&
+                    typeof (d as AplKeyDate).label === "string",
+                )
+                .map((d: AplKeyDate) => ({ date: d.date.trim(), label: d.label }))
+            : [];
+          return {
+            number: a.number,
+            title: a.title,
+            issuedDate: typeof a.issuedDate === "string" ? a.issuedDate : "",
+            keyDates,
+            // Derived, not model-provided: the soonest obligation still ahead of us.
+            complianceDeadline: soonestUpcomingDeadline(keyDates, today).date,
+            summary: typeof a.summary === "string" ? a.summary : "",
+            whoAffected: typeof a.whoAffected === "string" ? a.whoAffected : "",
+            appliesRationale:
+              typeof a.appliesRationale === "string" ? a.appliesRationale : "",
+            sourceUrl: a.sourceUrl,
+            verifiability: deriveAplVerifiability(a.sourceUrl),
+          };
+        })
     : [];
 
   return {
@@ -318,14 +335,13 @@ export async function POST(req: Request) {
   }
 
   const today = new Date();
-  const todayIso = today.toISOString().slice(0, 10);
 
   const perTarget = await Promise.all(
     targets.map(async (target) => {
       // APL discovery and people-finding are independent — run them concurrently.
       const [peopleResult, aplResult] = await Promise.all([
         findPeopleForTarget(target),
-        findApplicableAplsForTarget(target, todayIso),
+        findApplicableAplsForTarget(target, today),
       ]);
       const pairs =
         peopleResult.people.length > 0

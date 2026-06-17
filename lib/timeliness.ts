@@ -1,83 +1,133 @@
-import type { Apl, TimelinessLabel, TimelinessScore, Verifiability } from "./types";
+import type {
+  Apl,
+  AplKeyDate,
+  TimelinessLabel,
+  TimelinessScore,
+  Verifiability,
+} from "./types";
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 
-/**
- * Whole days from `today` until `iso` (negative = already past).
- * Returns null when the date is missing or unparseable — we never guess a deadline.
- */
+/** Applicable APLs never read fully cold — a relevant rule on the books is still worth a mention. */
+const BASELINE_SCORE = 20;
+
+function isoToUtcDay(iso: string): number | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
+function todayUtcDay(today: Date): number {
+  return Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
+}
+
+/** Whole days from `today` until `iso` (negative = already past); null if missing/unparseable. */
 export function daysUntil(iso: string | null, today: Date): number | null {
   if (!iso) return null;
-  const then = new Date(iso);
-  if (Number.isNaN(then.getTime())) return null;
-  const start = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate());
-  const end = Date.UTC(then.getUTCFullYear(), then.getUTCMonth(), then.getUTCDate());
-  return Math.round((end - start) / MS_PER_DAY);
+  const end = isoToUtcDay(iso);
+  if (end === null) return null;
+  return Math.round((end - todayUtcDay(today)) / MS_PER_DAY);
+}
+
+/** Whole days since `iso` was issued (negative = future); null if missing/unparseable. */
+export function daysSince(iso: string | null, today: Date): number | null {
+  const until = daysUntil(iso, today);
+  return until === null ? null : -until;
+}
+
+/** The nearest still-upcoming dated obligation — what a countdown should point at. */
+export function soonestUpcomingDeadline(
+  keyDates: AplKeyDate[],
+  today: Date,
+): { date: string | null; days: number | null } {
+  let best: { date: string; days: number } | null = null;
+  for (const kd of keyDates) {
+    const days = daysUntil(kd.date, today);
+    if (days === null || days < 0) continue;
+    if (!best || days < best.days) best = { date: kd.date, days };
+  }
+  return best ? { date: best.date, days: best.days } : { date: null, days: null };
+}
+
+/** Urgency from how soon a binding deadline lands. No upcoming deadline → 0 (recency may still carry it). */
+function deadlineScore(days: number | null): number {
+  if (days === null || days < 0) return 0;
+  if (days <= 30) return Math.round(100 - (days / 30) * 10); // 100 → 90
+  if (days <= 90) return Math.round(89 - ((days - 31) / 59) * 29); // 89 → 60
+  if (days <= 180) return Math.round(59 - ((days - 91) / 89) * 24); // 59 → 35
+  return 30;
 }
 
 /**
- * Urgency of a single APL, driven by how soon its compliance deadline lands.
+ * Urgency from how recently the APL dropped. A just-issued APL is itself the compelling event for
+ * a warm intro — "this just landed and affects you" — even when it states no hard deadline.
+ */
+function recencyScore(daysSinceIssued: number | null): number {
+  if (daysSinceIssued === null || daysSinceIssued < 0) return 0;
+  if (daysSinceIssued <= 7) return 80; // just dropped
+  if (daysSinceIssued <= 30) return 62; // still fresh
+  if (daysSinceIssued <= 60) return 42;
+  if (daysSinceIssued <= 90) return 28;
+  return 20;
+}
+
+function labelForScore(score: number): TimelinessLabel {
+  if (score >= 80) return "hot";
+  if (score >= 60) return "warm";
+  if (score >= 35) return "cool";
+  return "informational";
+}
+
+/**
+ * Urgency of a single APL: the stronger of its deadline proximity and its issuance recency.
  * Urgency ≠ connection strength — this answers "should we reach now," not "can we get in."
- * No deadline (or a past one) is informational, not urgent: the APL still matters, but it
- * isn't a clock-is-ticking trigger for outreach.
  */
 export function scoreApl(
-  apl: Pick<Apl, "complianceDeadline">,
+  apl: Pick<Apl, "keyDates" | "issuedDate">,
   today: Date,
-): { score: number; label: TimelinessLabel; daysToDeadline: number | null } {
-  const days = daysUntil(apl.complianceDeadline, today);
-
-  if (days === null || days < 0) {
-    return { score: 25, label: "informational", daysToDeadline: days };
-  }
-  if (days <= 30) {
-    // 0 days → 100, 30 days → 90
-    return { score: Math.round(100 - (days / 30) * 10), label: "hot", daysToDeadline: days };
-  }
-  if (days <= 90) {
-    // 31 days → ~89, 90 days → 60
-    return { score: Math.round(89 - ((days - 31) / 59) * 29), label: "warm", daysToDeadline: days };
-  }
-  if (days <= 180) {
-    // 91 days → ~59, 180 days → 35
-    return { score: Math.round(59 - ((days - 91) / 89) * 24), label: "cool", daysToDeadline: days };
-  }
-  return { score: 30, label: "cool", daysToDeadline: days };
+): {
+  score: number;
+  label: TimelinessLabel;
+  soonestDeadline: string | null;
+  daysToDeadline: number | null;
+} {
+  const { date: soonestDeadline, days } = soonestUpcomingDeadline(apl.keyDates ?? [], today);
+  const score = Math.max(
+    BASELINE_SCORE,
+    deadlineScore(days),
+    recencyScore(daysSince(apl.issuedDate, today)),
+  );
+  return { score, label: labelForScore(score), soonestDeadline, daysToDeadline: days };
 }
 
 /**
  * Roll a target org's applicable APLs up to one timeliness signal: the most urgent APL wins,
- * and the soonest upcoming deadline is surfaced for the badge/countdown.
+ * and the soonest upcoming deadline across all of them is surfaced for the badge/countdown.
  */
 export function aggregateOrgTimeliness(apls: Apl[], today: Date): TimelinessScore {
   if (apls.length === 0) {
     return { score: 0, label: "informational", soonestDeadline: null, daysToDeadline: null };
   }
 
-  let best = { score: -1, label: "informational" as TimelinessLabel };
+  let bestScore = -1;
   let soonestDeadline: string | null = null;
   let soonestDays: number | null = null;
 
   for (const apl of apls) {
     const scored = scoreApl(apl, today);
-    if (scored.score > best.score) {
-      best = { score: scored.score, label: scored.label };
-    }
-    // Track the nearest *upcoming* deadline for the countdown.
-    if (scored.daysToDeadline !== null && scored.daysToDeadline >= 0) {
-      if (soonestDays === null || scored.daysToDeadline < soonestDays) {
-        soonestDays = scored.daysToDeadline;
-        soonestDeadline = apl.complianceDeadline;
-      }
+    if (scored.score > bestScore) bestScore = scored.score;
+    if (
+      scored.daysToDeadline !== null &&
+      scored.daysToDeadline >= 0 &&
+      (soonestDays === null || scored.daysToDeadline < soonestDays)
+    ) {
+      soonestDays = scored.daysToDeadline;
+      soonestDeadline = scored.soonestDeadline;
     }
   }
 
-  return {
-    score: Math.max(0, best.score),
-    label: best.label,
-    soonestDeadline,
-    daysToDeadline: soonestDays,
-  };
+  const score = Math.max(0, bestScore);
+  return { score, label: labelForScore(score), soonestDeadline, daysToDeadline: soonestDays };
 }
 
 const DHCS_HOSTS = ["dhcs.ca.gov"];
