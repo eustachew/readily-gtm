@@ -11,16 +11,20 @@ MISSION
 TOOL USE — REQUIRED
 Use web_search to find APLs on the DHCS site and to confirm dates. For every APL you return:
 - Confirm the APL number, title, and issue date from a public source.
-- Open and read the actual APL document (the PDF body), not just the index page — the operative dates live in the body, not the listing.
+- Open and read the actual APL document (the PDF body), not just the index page — the operative dates live deep in the body, not the listing. Snippets are not enough; the most important deadlines are usually several pages in.
+- Do not stop at the first date you see. After locating the APL, run targeted follow-up searches for its deadlines specifically — e.g. "<APL number> policies and procedures submission deadline", "<APL number> attestation due", "<APL number> implementation date". Reputable secondary summaries (compliance vendors, plan bulletins) often enumerate the dates; use them to find dates, then keep the DHCS page as the sourceUrl.
 - Prefer the official DHCS page (dhcs.ca.gov) as the sourceUrl. A reputable secondary source is acceptable if it cites the APL number.
 
 DATES — EXTRACT EVERY DATED OBLIGATION
 APLs almost always carry several dates, not one. Pull each into the keyDates array with an ISO date and a short label of what happens then. Look specifically for:
 - effective / implementation date (when MCPs must be in compliance)
-- attestation, reporting, or submission due dates
-- phase-in or staggered rollout dates
+- attestation, reporting, or submission due dates (e.g. updated Policies & Procedures to a DHCS portal)
+- phase-in or staggered rollout dates, including ones years out
 - prior-authorization / turnaround-time requirements that begin on a stated date
-Include past dates too — a date that has already passed still matters for the readiness checklist, so do not filter by today's date. Return ISO dates (YYYY-MM-DD); if only a month is published, use the first of that month and note it in summary. If the APL genuinely states no dates, return an empty keyDates array. Never output a date you did not see in a source, and never invent one to fill the array.
+
+RESOLVE RELATIVE DEADLINES. Many APL deadlines are stated relative to the release date, e.g. "within 90 calendar days of this APL's release" or "no later than 60 days after issuance." Compute the absolute calendar date from the issue date and record that ISO date, putting the relative phrasing in the label (e.g. label: "Updated P&Ps due — within 90 days of release"). These relative deadlines are often the most imminent ones, so do not skip them.
+
+Include past dates too — a date that has already passed still matters for the readiness checklist, so do not filter by today's date. Return ISO dates (YYYY-MM-DD); if only a month is published, use the first of that month and note it in summary. If the APL genuinely states no dates, return an empty keyDates array. Never output a date you did not see (or cannot compute from a stated relative interval), and never invent one to fill the array.
 
 RELEVANCE
 Only include APLs that plausibly apply to this org's lines of business. A dental APL does not apply to a medical-only plan; a D-SNP APL does not apply to a plan with no Medicare line. In appliesRationale, name the specific reason (e.g. "L.A. Care is a Medi-Cal MCP, and this APL applies to all full-scope MCPs").

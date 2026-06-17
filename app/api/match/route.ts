@@ -33,7 +33,8 @@ import type {
 const APL_LOOKBACK_MONTHS = 4;
 
 export const runtime = "nodejs";
-export const maxDuration = 90;
+// APL discovery runs up to 10 web searches; the 90s default times out in prod.
+export const maxDuration = 300;
 
 type PerTargetPeople = {
   targetOrganization: string;
@@ -122,9 +123,9 @@ async function findApplicableAplsForTarget(
   const todayIso = today.toISOString().slice(0, 10);
   const response = await client.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 3072,
+    max_tokens: 8192,
     system: APL_SYSTEM_PROMPT,
-    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 6 }],
+    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 10 }],
     messages: [
       {
         role: "user",
@@ -142,8 +143,17 @@ async function findApplicableAplsForTarget(
     .map((b) => b.text)
     .join("\n");
 
+  if (process.env.NODE_ENV !== "production") {
+    console.log(
+      `[apl:${target.organization}] stop_reason=${response.stop_reason} text_len=${textBlock.length}`,
+    );
+  }
+
   const parsed = extractJson(textBlock);
   if (!parsed) {
+    console.warn(
+      `[apl:${target.organization}] failed to parse APL JSON (stop_reason=${response.stop_reason})`,
+    );
     return {
       targetOrganization: target.organization,
       apls: [],
@@ -293,20 +303,69 @@ function linkedInSearchUrl(name: string, organization: string): string {
   return `https://www.linkedin.com/search/results/people/?keywords=${keywords}`;
 }
 
-function extractJson(text: string): Record<string, unknown> | null {
-  const fenced = text.match(/```json\s*([\s\S]*?)```/);
-  const candidate = fenced ? fenced[1] : text;
+function tryParseObject(s: string): Record<string, unknown> | null {
   try {
-    return JSON.parse(candidate.trim());
+    const v = JSON.parse(s.trim());
+    return v && typeof v === "object" && !Array.isArray(v)
+      ? (v as Record<string, unknown>)
+      : null;
   } catch {
-    const loose = candidate.match(/\{[\s\S]*\}/);
-    if (!loose) return null;
-    try {
-      return JSON.parse(loose[0]);
-    } catch {
-      return null;
+    return null;
+  }
+}
+
+// Yield every top-level {...} block, tracking string literals so braces inside
+// strings don't throw off the depth count.
+function* balancedObjects(text: string): Generator<string> {
+  let depth = 0;
+  let start = -1;
+  let inStr = false;
+  let esc = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (c === "\\") esc = true;
+      else if (c === '"') inStr = false;
+      continue;
+    }
+    if (c === '"') inStr = true;
+    else if (c === "{") {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (c === "}") {
+      depth--;
+      if (depth === 0 && start >= 0) {
+        yield text.slice(start, i + 1);
+        start = -1;
+      }
     }
   }
+}
+
+// Robust against prose before/after the JSON and inconsistent code fences:
+// try the fenced block first, then fall back to the largest parseable object.
+function extractJson(text: string): Record<string, unknown> | null {
+  const fencedJson = text.match(/```json\s*([\s\S]*?)```/i);
+  if (fencedJson) {
+    const parsed = tryParseObject(fencedJson[1]);
+    if (parsed) return parsed;
+  }
+  const fenced = text.match(/```\s*([\s\S]*?)```/);
+  if (fenced) {
+    const parsed = tryParseObject(fenced[1]);
+    if (parsed) return parsed;
+  }
+  let best: Record<string, unknown> | null = null;
+  let bestLen = 0;
+  for (const candidate of balancedObjects(text)) {
+    const parsed = tryParseObject(candidate);
+    if (parsed && candidate.length > bestLen) {
+      best = parsed;
+      bestLen = candidate.length;
+    }
+  }
+  return best;
 }
 
 export async function POST(req: Request) {
