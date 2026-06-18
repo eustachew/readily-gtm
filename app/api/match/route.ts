@@ -125,7 +125,13 @@ async function findApplicableAplsForTarget(
     model: "claude-sonnet-4-6",
     max_tokens: 8192,
     system: APL_SYSTEM_PROMPT,
-    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 10 }],
+    tools: [
+      { type: "web_search_20250305", name: "web_search", max_uses: 6 },
+      // Plain web_fetch (NOT _20260209, whose code-exec sandbox corrupts PDFs into
+      // base64): reads the actual APL PDF so deadlines come from the document, not
+      // snippets. Anthropic's fetcher also clears the DHCS bot-wall a raw fetch can't.
+      { type: "web_fetch_20250910", name: "web_fetch", max_uses: 5 },
+    ],
     messages: [
       {
         role: "user",
