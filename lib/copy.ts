@@ -110,6 +110,33 @@ export const copy = {
   networkGapFallbackArchetype: "healthcare compliance insider",
   networkGapPhrase: (archetype: string) =>
     `this one needs ${indefiniteArticle(archetype)} ${archetype} in your network`,
+
+  timeliness: {
+    labels: {
+      hot: "Reach now",
+      warm: "Timely",
+      cool: "On the radar",
+      informational: "Active APL",
+    },
+    none: "No recent APLs",
+    deadlinePrefix: "APL deadline",
+    passed: "passed",
+    today: "today",
+    tomorrow: "tomorrow",
+    inDays: (n: number) => `in ${n} days`,
+    inWeeks: (n: number) => `in ${n} week${n === 1 ? "" : "s"}`,
+    inMonths: (n: number) => `in ${n} month${n === 1 ? "" : "s"}`,
+    panelHeading: (n: number) => `Applicable APL${n === 1 ? "" : "s"} (${n})`,
+    noUpcoming: "No upcoming deadline — recently issued",
+    moreDeadlines: (n: number) =>
+      `+${n} more dated obligation${n === 1 ? "" : "s"}`,
+    emptyPanel: "No recent APLs surfaced for this org's lines of business.",
+    sortLabel: "Sort:",
+    sortOptions: { path: "Best path", urgency: "Urgency" },
+    summaryHot: (n: number) => `${n} org${n === 1 ? "" : "s"} to reach now`,
+    summaryWarm: (n: number) => `${n} timely`,
+    summarySoonest: "soonest APL deadline",
+  },
 } as const;
 
 function indefiniteArticle(next: string): "a" | "an" {

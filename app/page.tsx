@@ -8,9 +8,12 @@ import { advisorsToText, parseAdvisors, parseTargets, targetsToText } from "@/li
 import { classifyRole, type PersonaRank } from "@/lib/scoring";
 import type {
   Advisor,
+  Apl,
   DraftResponse,
   Match,
   MatchResponse,
+  OrgTimeliness,
+  TimelinessLabel,
   Verifiability,
 } from "@/lib/types";
 
@@ -66,6 +69,9 @@ export default function Home() {
   const [targetsText, setTargetsText] = useState("");
   const [loading, setLoading] = useState(false);
   const [matches, setMatches] = useState<Match[] | null>(null);
+  const [organizations, setOrganizations] = useState<OrgTimeliness[] | undefined>(
+    undefined,
+  );
   const [notes, setNotes] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [draftCtx, setDraftCtx] = useState<DraftContext | null>(null);
@@ -75,6 +81,7 @@ export default function Home() {
     setError(null);
     setLoading(true);
     setMatches(null);
+    setOrganizations(undefined);
     setNotes(undefined);
     setCacheInfo(null);
     try {
@@ -82,6 +89,7 @@ export default function Home() {
       const cached = readCache(hash);
       if (cached) {
         setMatches(cached.matches);
+        setOrganizations(cached.organizations);
         setNotes(cached.notes);
         setCacheInfo({ fromCache: true, hash });
         return;
@@ -100,6 +108,7 @@ export default function Home() {
       }
       const data = (await res.json()) as MatchResponse;
       setMatches(data.matches);
+      setOrganizations(data.organizations);
       setNotes(data.notes);
       writeCache(hash, data);
       setCacheInfo({ fromCache: false, hash });
@@ -196,6 +205,7 @@ export default function Home() {
 
       <ResultsTable
         matches={matches}
+        organizations={organizations}
         loading={loading}
         targets={parseTargets(targetsText).map((t) => t.organization)}
         onDraft={(row) =>
@@ -868,17 +878,237 @@ function LoadingIndicator({ targets }: { targets: string[] }) {
   );
 }
 
+function timelinessTone(label: TimelinessLabel): string {
+  if (label === "hot") return "bg-red-50 text-red-700 ring-1 ring-red-200";
+  if (label === "warm") return "bg-amber-50 text-amber-800 ring-1 ring-amber-200";
+  if (label === "cool") return "bg-sky-50 text-sky-700 ring-1 ring-sky-200";
+  return "bg-zinc-100 text-zinc-500 ring-1 ring-zinc-200";
+}
+
+function formatShortDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function daysUntilClient(iso: string): number | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const now = new Date();
+  const a = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const b = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+  return Math.round((b - a) / 86_400_000);
+}
+
+function countdownPhrase(days: number): string {
+  if (days < 0) return copy.timeliness.passed;
+  if (days === 0) return copy.timeliness.today;
+  if (days === 1) return copy.timeliness.tomorrow;
+  if (days <= 21) return copy.timeliness.inDays(days);
+  const weeks = Math.round(days / 7);
+  if (weeks <= 8) return copy.timeliness.inWeeks(weeks);
+  return copy.timeliness.inMonths(Math.round(days / 30));
+}
+
+type UpcomingDate = { date: string; label: string; days: number };
+
+function upcomingKeyDates(apl: Apl): UpcomingDate[] {
+  return (apl.keyDates ?? [])
+    .map((d) => ({ date: d.date, label: d.label, days: daysUntilClient(d.date) }))
+    .filter((d): d is UpcomingDate => d.days !== null && d.days >= 0)
+    .sort((a, b) => a.days - b.days);
+}
+
+function AplPanel({ org }: { org: OrgTimeliness }) {
+  if (org.apls.length === 0) {
+    return (
+      <div className="text-xs leading-relaxed text-muted-foreground">
+        {org.notes ?? copy.timeliness.emptyPanel}
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-3 text-left">
+      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+        {copy.timeliness.panelHeading(org.apls.length)}
+      </p>
+      <ul className="flex flex-col gap-3">
+        {org.apls.map((apl) => {
+          const upcoming = upcomingKeyDates(apl);
+          const next = upcoming[0];
+          return (
+            <li
+              key={apl.number}
+              className="flex flex-col gap-1 border-l-2 border-border pl-2"
+            >
+              <div className="text-xs font-medium text-foreground">
+                {apl.number} — {apl.title}
+              </div>
+              {next ? (
+                <div className="text-xs text-foreground">
+                  <span className="font-semibold">{formatShortDate(next.date)}</span>{" "}
+                  <span className="text-accent-ink">({countdownPhrase(next.days)})</span>
+                  <span className="text-muted"> — {next.label}</span>
+                </div>
+              ) : (
+                <div className="text-xs text-muted-foreground">
+                  {copy.timeliness.noUpcoming}
+                </div>
+              )}
+              {upcoming.length > 1 && (
+                <div className="text-[11px] text-muted-foreground">
+                  {copy.timeliness.moreDeadlines(upcoming.length - 1)}
+                </div>
+              )}
+              <a
+                href={apl.sourceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-muted underline-offset-2 hover:text-accent hover:underline"
+              >
+                {domainOf(apl.sourceUrl)}
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function TimelinessBadge({ org }: { org: OrgTimeliness | undefined }) {
+  if (!org) return null;
+  const { timeliness } = org;
+  const hasApls = org.apls.length > 0;
+  // Nothing relevant surfaced — keep the cell quiet rather than show a dead badge.
+  if (!hasApls && timeliness.label === "informational") {
+    return (
+      <span className="text-[11px] text-muted-foreground">
+        {copy.timeliness.none}
+      </span>
+    );
+  }
+  const countdown =
+    timeliness.daysToDeadline !== null && timeliness.soonestDeadline
+      ? `${countdownPhrase(timeliness.daysToDeadline)} · ${formatShortDate(timeliness.soonestDeadline)}`
+      : null;
+  const badge = (
+    <span
+      tabIndex={0}
+      className={`inline-flex cursor-help items-center whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium leading-none focus:outline-none ${timelinessTone(timeliness.label)}`}
+    >
+      {copy.timeliness.labels[timeliness.label]}
+    </span>
+  );
+  return (
+    <div className="flex flex-col gap-1">
+      <HoverPopover widthClass="w-80" widthPx={320} trigger={badge}>
+        <AplPanel org={org} />
+      </HoverPopover>
+      {countdown && (
+        <span className="whitespace-nowrap text-[11px] text-muted-foreground">
+          {copy.timeliness.deadlinePrefix} {countdown}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function TimelinessSummary({
+  organizations,
+}: {
+  organizations?: OrgTimeliness[];
+}) {
+  if (!organizations || organizations.length === 0) return null;
+  const hot = organizations.filter((o) => o.timeliness.label === "hot").length;
+  const warm = organizations.filter((o) => o.timeliness.label === "warm").length;
+  if (hot === 0 && warm === 0) return null;
+
+  let soonest: { date: string; days: number } | null = null;
+  for (const o of organizations) {
+    const d = o.timeliness;
+    if (d.soonestDeadline && d.daysToDeadline !== null && d.daysToDeadline >= 0) {
+      if (!soonest || d.daysToDeadline < soonest.days) {
+        soonest = { date: d.soonestDeadline, days: d.daysToDeadline };
+      }
+    }
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+      {hot > 0 && (
+        <span className="font-medium text-red-700">
+          {copy.timeliness.summaryHot(hot)}
+        </span>
+      )}
+      {hot > 0 && warm > 0 && <span className="text-border-strong">·</span>}
+      {warm > 0 && (
+        <span className="text-amber-700">{copy.timeliness.summaryWarm(warm)}</span>
+      )}
+      {soonest && (
+        <>
+          <span className="text-border-strong">·</span>
+          <span>
+            {copy.timeliness.summarySoonest}{" "}
+            <span className="font-medium text-foreground">
+              {formatShortDate(soonest.date)}
+            </span>{" "}
+            ({countdownPhrase(soonest.days)})
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
+type SortMode = "path" | "urgency";
+
+function SortToggle({
+  mode,
+  onChange,
+}: {
+  mode: SortMode;
+  onChange: (m: SortMode) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 text-xs">
+      <span className="text-muted-foreground">{copy.timeliness.sortLabel}</span>
+      {(["path", "urgency"] as SortMode[]).map((m) => (
+        <button
+          key={m}
+          type="button"
+          onClick={() => onChange(m)}
+          className={`rounded-md px-2 py-0.5 font-medium transition-colors ${
+            mode === m
+              ? "bg-surface-muted text-foreground ring-1 ring-border-strong"
+              : "text-muted hover:text-foreground"
+          }`}
+        >
+          {copy.timeliness.sortOptions[m]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function ResultsTable({
   matches,
+  organizations,
   loading,
   targets,
   onDraft,
 }: {
   matches: Match[] | null;
+  organizations?: OrgTimeliness[];
   loading: boolean;
   targets: string[];
   onDraft: (row: PersonRow) => void;
 }) {
+  const [sortMode, setSortMode] = useState<SortMode>("path");
   if (loading) {
     return <LoadingIndicator targets={targets} />;
   }
@@ -899,10 +1129,29 @@ function ResultsTable({
       </div>
     );
   }
-  const rows = groupByPerson(matches);
+  const orgMap = new Map<string, OrgTimeliness>();
+  for (const o of organizations ?? []) orgMap.set(o.organization, o);
+
+  let rows = groupByPerson(matches);
+  if (sortMode === "urgency") {
+    rows = [...rows].sort((a, b) => {
+      const ta = orgMap.get(a.targetOrganization)?.timeliness.score ?? -1;
+      const tb = orgMap.get(b.targetOrganization)?.timeliness.score ?? -1;
+      if (tb !== ta) return tb - ta;
+      return b.bestScore - a.bestScore;
+    });
+  }
+  const hasTimeliness = (organizations ?? []).some((o) => o.apls.length > 0);
+
   return (
     <div className="flex flex-col gap-3">
-      <PriorityCounts rows={rows} />
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex flex-col gap-1">
+          <PriorityCounts rows={rows} />
+          <TimelinessSummary organizations={organizations} />
+        </div>
+        {hasTimeliness && <SortToggle mode={sortMode} onChange={setSortMode} />}
+      </div>
       <div className="rounded-md border border-border bg-surface">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-border-strong bg-surface-muted text-xs uppercase tracking-wide text-muted-foreground">
@@ -923,7 +1172,12 @@ function ResultsTable({
                   <td className="px-4 py-3">
                     <PriorityCell row={r} />
                   </td>
-                  <td className="px-4 py-3 text-foreground">{r.targetOrganization}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col gap-1.5">
+                      <span className="text-foreground">{r.targetOrganization}</span>
+                      <TimelinessBadge org={orgMap.get(r.targetOrganization)} />
+                    </div>
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-0.5">
                       <a
