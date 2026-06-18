@@ -121,6 +121,16 @@ export const copy = {
     panelNote: "Re-run anytime to catch their next APL.",
   },
 
+  findAdvisors: {
+    trigger: "Find advisors →",
+    title: "Advisors to recruit",
+    subtitle: (org: string) => `People who could bridge you into ${org}`,
+    loading: "Searching for advisors who could open a path…",
+    empty: "No verifiable advisor candidates surfaced. Try again or refine the target.",
+    error: "Search failed. Try again.",
+    pathLabel: "path",
+  },
+
   timeliness: {
     labels: {
       hot: "Reach now",

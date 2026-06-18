@@ -9,7 +9,9 @@ import { classifyRole, type PersonaRank } from "@/lib/scoring";
 import type {
   Advisor,
   Apl,
+  CandidateAdvisor,
   DraftResponse,
+  FindAdvisorsResponse,
   Match,
   MatchResponse,
   OrgTimeliness,
@@ -81,6 +83,7 @@ export default function Home() {
   const [notes, setNotes] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [draftCtx, setDraftCtx] = useState<DraftContext | null>(null);
+  const [findOrg, setFindOrg] = useState<string | null>(null);
   const [cacheInfo, setCacheInfo] = useState<CacheInfo | null>(null);
   const [watched, setWatched] = useState<string[]>([]);
 
@@ -242,6 +245,7 @@ export default function Home() {
         targets={parseTargets(targetsText).map((t) => t.organization)}
         watched={watched}
         onToggleWatch={toggleWatch}
+        onFindAdvisors={(org) => setFindOrg(org)}
         onDraft={(row) =>
           setDraftCtx({
             row,
@@ -256,6 +260,13 @@ export default function Home() {
         <DraftModal
           ctx={draftCtx}
           onClose={() => setDraftCtx(null)}
+        />
+      )}
+
+      {findOrg && (
+        <FindAdvisorsModal
+          org={findOrg}
+          onClose={() => setFindOrg(null)}
         />
       )}
     </main>
@@ -905,6 +916,170 @@ function DraftBlock({ heading, body }: { heading: string; body: string }) {
   );
 }
 
+function FindAdvisorsModal({
+  org,
+  onClose,
+}: {
+  org: string;
+  onClose: () => void;
+}) {
+  const [data, setData] = useState<FindAdvisorsResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const run = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setData(null);
+    try {
+      const res = await fetch("/api/find-advisors", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ targetOrganization: org }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: copy.findAdvisors.error }));
+        throw new Error(err.error ?? copy.findAdvisors.error);
+      }
+      setData((await res.json()) as FindAdvisorsResponse);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : copy.findAdvisors.error);
+    } finally {
+      setLoading(false);
+    }
+  }, [org]);
+
+  useEffect(() => {
+    run();
+  }, [run]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative flex max-h-[85vh] w-full max-w-2xl flex-col gap-5 overflow-y-auto rounded-lg border border-border-strong bg-surface p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <header className="flex items-start justify-between gap-4">
+          <div className="flex flex-col">
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+              {copy.findAdvisors.title}
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              {copy.findAdvisors.subtitle(org)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm text-muted hover:text-foreground"
+            aria-label="Close"
+          >
+            {copy.draftModal.close}
+          </button>
+        </header>
+
+        {loading && (
+          <div className="rounded-md border border-border bg-surface-muted px-4 py-8 text-center text-sm text-muted-foreground">
+            {copy.findAdvisors.loading}
+          </div>
+        )}
+
+        {error && (
+          <div className="flex items-center justify-between rounded-md border border-accent-ring bg-accent-soft px-4 py-3 text-sm text-accent-ink">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={run}
+              className="rounded-md border border-accent-ring bg-surface px-3 py-1 text-xs font-medium text-accent-ink hover:bg-surface-muted"
+            >
+              {copy.draftModal.retry}
+            </button>
+          </div>
+        )}
+
+        {data && !loading && data.candidates.length === 0 && (
+          <div className="rounded-md border border-border bg-surface px-4 py-6 text-center text-sm text-muted-foreground">
+            {data.notes ?? copy.findAdvisors.empty}
+          </div>
+        )}
+
+        {data && data.candidates.length > 0 && (
+          <ul className="flex flex-col gap-3">
+            {data.candidates.map((c, i) => (
+              <CandidateCard key={i} candidate={c} />
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CandidateCard({ candidate: c }: { candidate: CandidateAdvisor }) {
+  return (
+    <li className="flex flex-col gap-1.5 rounded-md border border-border bg-surface-muted px-4 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col">
+          <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+            {c.linkedinUrl ? (
+              <a
+                href={c.linkedinUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline-offset-2 hover:underline"
+              >
+                {c.name}
+              </a>
+            ) : (
+              c.name
+            )}
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium leading-none ${verifiabilityTone(c.verifiability)}`}
+              title={copy.verifiabilityHint[c.verifiability]}
+            >
+              {copy.verifiability[c.verifiability]}
+            </span>
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {c.role}
+            {c.organization ? ` · ${c.organization}` : ""}
+          </span>
+        </div>
+        <span className="shrink-0 font-mono text-xs font-medium text-foreground">
+          {copy.findAdvisors.pathLabel} {c.pathStrength}
+        </span>
+      </div>
+      <p className="text-xs leading-relaxed text-muted">{c.bridgeRationale}</p>
+      {c.sourceUrls.length > 0 && (
+        <div className="flex flex-wrap gap-x-2 gap-y-0.5">
+          {c.sourceUrls.map((u) => (
+            <a
+              key={u}
+              href={u}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-muted underline-offset-2 hover:text-accent hover:underline"
+            >
+              {domainOf(u)}
+            </a>
+          ))}
+        </div>
+      )}
+    </li>
+  );
+}
+
 function ChecklistBlock({ items }: { items: ReadinessChecklistItem[] }) {
   const [copied, setCopied] = useState(false);
   const plain = items
@@ -1319,6 +1494,7 @@ function ResultsTable({
   targets,
   watched,
   onToggleWatch,
+  onFindAdvisors,
   onDraft,
 }: {
   matches: Match[] | null;
@@ -1327,10 +1503,12 @@ function ResultsTable({
   targets: string[];
   watched: string[];
   onToggleWatch: (org: string) => void;
+  onFindAdvisors: (org: string) => void;
   onDraft: (row: PersonRow) => void;
 }) {
   const [sortMode, setSortMode] = useState<SortMode>("path");
   const watchedSet = new Set(watched);
+  const seenOrgs = new Set<string>();
   if (loading) {
     return <LoadingIndicator targets={targets} />;
   }
@@ -1389,6 +1567,8 @@ function ResultsTable({
           </thead>
           <tbody className="divide-y divide-border">
             {rows.map((r, i) => {
+              const firstForOrg = !seenOrgs.has(r.targetOrganization);
+              seenOrgs.add(r.targetOrganization);
               return (
                 <tr key={i} className="align-top hover:bg-surface-muted">
                   <td className="px-4 py-3">
@@ -1408,6 +1588,15 @@ function ResultsTable({
                         />
                       </span>
                       <TimelinessBadge org={orgMap.get(r.targetOrganization)} />
+                      {firstForOrg && (
+                        <button
+                          type="button"
+                          onClick={() => onFindAdvisors(r.targetOrganization)}
+                          className="self-start text-[11px] font-medium text-muted underline underline-offset-2 hover:text-accent"
+                        >
+                          {copy.findAdvisors.trigger}
+                        </button>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3">

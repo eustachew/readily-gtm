@@ -97,3 +97,24 @@ export type DraftResponse = {
   forwardableBlurb: string;
   readinessChecklist?: ReadinessChecklistItem[];
 };
+
+export type CandidateAdvisor = {
+  name: string;
+  role: string; // current title
+  organization: string; // where they are now
+  pathStrength: number; // 0–100: how plausibly they could warm-intro the target
+  bridgeRationale: string; // one line: why they bridge to THIS target
+  linkedinUrl: string | null;
+  sourceUrls: string[];
+  verifiability: Verifiability;
+};
+
+export type FindAdvisorsRequest = {
+  targetOrganization: string;
+};
+
+export type FindAdvisorsResponse = {
+  targetOrganization: string;
+  candidates: CandidateAdvisor[];
+  notes?: string;
+};
