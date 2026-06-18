@@ -49,6 +49,7 @@ export type Apl = {
   summary: string;
   whoAffected: string;
   appliesRationale: string; // why this APL applies to THIS org
+  advisorArchetype: string | null; // ideal missing advisor to warm-intro on this APL's topic
   sourceUrl: string;
   verifiability: Verifiability;
 };

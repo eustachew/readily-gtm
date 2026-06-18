@@ -202,6 +202,11 @@ async function findApplicableAplsForTarget(
             whoAffected: typeof a.whoAffected === "string" ? a.whoAffected : "",
             appliesRationale:
               typeof a.appliesRationale === "string" ? a.appliesRationale : "",
+            advisorArchetype:
+              typeof a.advisorArchetype === "string" &&
+              a.advisorArchetype.trim().length > 0
+                ? a.advisorArchetype.trim()
+                : null,
             sourceUrl: a.sourceUrl,
             verifiability: deriveAplVerifiability(a.sourceUrl),
           };

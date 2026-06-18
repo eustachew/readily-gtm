@@ -111,6 +111,15 @@ export const copy = {
   networkGapFallbackArchetype: "healthcare compliance insider",
   networkGapPhrase: (archetype: string) =>
     `this one needs ${indefiniteArticle(archetype)} ${archetype} in your network`,
+  networkGapAplHint: (aplNumber: string) =>
+    `the path to move on ${aplNumber}`,
+
+  watchlist: {
+    watch: "Watch for new APLs",
+    watching: "Watching — saved to your list",
+    panelTitle: (n: number) => `Watching ${n} org${n === 1 ? "" : "s"}`,
+    panelNote: "Re-run anytime to catch their next APL.",
+  },
 
   timeliness: {
     labels: {

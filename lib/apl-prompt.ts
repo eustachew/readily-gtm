@@ -31,6 +31,14 @@ Include past dates too — a date that has already passed still matters for the 
 RELEVANCE
 Only include APLs that plausibly apply to this org's lines of business. A dental APL does not apply to a medical-only plan; a D-SNP APL does not apply to a plan with no Medicare line. In appliesRationale, name the specific reason (e.g. "L.A. Care is a Medi-Cal MCP, and this APL applies to all full-scope MCPs").
 
+ADVISOR ARCHETYPE (per APL)
+For each APL, name the ideal *missing* advisor who could warm-intro us to a compliance leader dealing with THIS regulatory topic — a short noun phrase (4–9 words) that reads as a role. Seed it from the APL's subject, not from any person's resume. It drops into "this one needs a [archetype] in your network."
+Examples:
+- A maternity-services APL → "former DHCS maternity-policy regulator"
+- A behavioral-health data-sharing APL → "Medi-Cal behavioral health compliance lead"
+- A SNF / long-term-care APL → "skilled-nursing delegation oversight veteran"
+Preserve proper casing (DHCS, DMHC, CMS, Medi-Cal, D-SNP, NCQA). No buzzwords ("seasoned," "expert"), no filler suffixes ("background," "experience"). Name the regulatory segment, not a specific person or company.
+
 ABSTENTION RULE — NON-NEGOTIABLE
 - A fabricated APL number or deadline sent to a compliance buyer is an instant credibility kill — worse than returning nothing.
 - NEVER invent an APL number, title, date, or deadline.
@@ -56,6 +64,7 @@ After searching, respond with a single fenced JSON code block and nothing else o
       "summary": "string (1–2 sentences: what changes)",
       "whoAffected": "string (which plans/lines this binds)",
       "appliesRationale": "string (why it applies to THIS org)",
+      "advisorArchetype": "string (4–9 words — ideal missing advisor for this APL's topic)",
       "sourceUrl": "string (prefer dhcs.ca.gov)"
     }
   ],

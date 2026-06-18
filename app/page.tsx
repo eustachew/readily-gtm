@@ -29,6 +29,7 @@ type DraftContext = {
 // localStorage entries from an older schema (e.g. pre-APL-keyDates) are ignored
 // rather than replayed.
 const CACHE_PREFIX = "match_cache_v2_";
+const WATCHLIST_KEY = "watched_orgs";
 
 async function hashInputs(advisors: string, targets: string): Promise<string> {
   const normalized = `${advisors.trim().toLowerCase()}|||${targets.trim().toLowerCase()}`;
@@ -81,6 +82,30 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [draftCtx, setDraftCtx] = useState<DraftContext | null>(null);
   const [cacheInfo, setCacheInfo] = useState<CacheInfo | null>(null);
+  const [watched, setWatched] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(WATCHLIST_KEY);
+      if (raw) setWatched(JSON.parse(raw) as string[]);
+    } catch {
+      // ignore malformed watchlist
+    }
+  }, []);
+
+  const toggleWatch = useCallback((org: string) => {
+    setWatched((prev) => {
+      const next = prev.includes(org)
+        ? prev.filter((o) => o !== org)
+        : [...prev, org];
+      try {
+        localStorage.setItem(WATCHLIST_KEY, JSON.stringify(next));
+      } catch {
+        // storage full or blocked — silent fail
+      }
+      return next;
+    });
+  }, []);
 
   async function handleSubmit() {
     setError(null);
@@ -208,11 +233,15 @@ export default function Home() {
         </div>
       )}
 
+      <WatchlistPanel watched={watched} onToggle={toggleWatch} />
+
       <ResultsTable
         matches={matches}
         organizations={organizations}
         loading={loading}
         targets={parseTargets(targetsText).map((t) => t.organization)}
+        watched={watched}
+        onToggleWatch={toggleWatch}
         onDraft={(row) =>
           setDraftCtx({
             row,
@@ -520,9 +549,20 @@ function ScorePill({ row, path }: { row: PersonRow; path: Path }) {
   );
 }
 
-function PriorityCell({ row }: { row: PersonRow }) {
+function PriorityCell({
+  row,
+  topApl,
+}: {
+  row: PersonRow;
+  topApl?: Apl | null;
+}) {
   const p = priorityFor(row);
   const best = row.paths[0];
+  // Prefer the timeliness-aware archetype seeded from the org's live APL; fall
+  // back to the person's career-derived archetype, then the generic fallback.
+  const aplArchetype = topApl?.advisorArchetype ?? null;
+  const archetype =
+    aplArchetype ?? row.suggestedAdvisorArchetype ?? copy.networkGapFallbackArchetype;
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
@@ -534,12 +574,16 @@ function PriorityCell({ row }: { row: PersonRow }) {
         {p !== "network-gap" && <ScorePill row={row} path={best} />}
       </div>
       {p === "network-gap" && (
-        <p className="text-xs text-accent-ink">
-          {copy.networkGapPhrase(
-            row.suggestedAdvisorArchetype ??
-              copy.networkGapFallbackArchetype,
+        <div className="flex flex-col gap-0.5">
+          <p className="text-xs text-accent-ink">
+            {copy.networkGapPhrase(archetype)}
+          </p>
+          {aplArchetype && topApl && (
+            <p className="text-[11px] text-muted-foreground">
+              {copy.networkGapAplHint(topApl.number)}
+            </p>
           )}
-        </p>
+        </div>
       )}
     </div>
   );
@@ -1154,6 +1198,92 @@ function TimelinessSummary({
 
 type SortMode = "path" | "urgency";
 
+function StarGlyph({
+  filled,
+  className,
+}: {
+  filled: boolean;
+  className?: string;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth={filled ? 0 : 1.6}
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M12 2.5l2.9 5.88 6.49.94-4.7 4.58 1.11 6.46L12 17.77l-5.8 3.05 1.1-6.46-4.69-4.58 6.49-.94L12 2.5z" />
+    </svg>
+  );
+}
+
+function WatchToggle({
+  org,
+  watched,
+  onToggle,
+}: {
+  org: string;
+  watched: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={watched}
+      title={watched ? copy.watchlist.watching : copy.watchlist.watch}
+      aria-label={`${watched ? copy.watchlist.watching : copy.watchlist.watch}: ${org}`}
+      className={`inline-flex size-5 shrink-0 items-center justify-center rounded transition-colors ${
+        watched
+          ? "text-amber-500 hover:text-amber-600"
+          : "text-border-strong hover:text-muted-foreground"
+      }`}
+    >
+      <StarGlyph filled={watched} className="size-3.5" />
+    </button>
+  );
+}
+
+function WatchlistPanel({
+  watched,
+  onToggle,
+}: {
+  watched: string[];
+  onToggle: (org: string) => void;
+}) {
+  if (watched.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-border bg-surface-muted px-4 py-3 text-xs">
+      <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
+        <StarGlyph filled className="size-3.5 text-amber-500" />
+        {copy.watchlist.panelTitle(watched.length)}
+      </span>
+      <span className="text-muted-foreground">{copy.watchlist.panelNote}</span>
+      <span className="flex flex-wrap gap-1.5">
+        {watched.map((org) => (
+          <span
+            key={org}
+            className="inline-flex items-center gap-1 rounded-full bg-surface px-2 py-0.5 ring-1 ring-border"
+          >
+            <span className="text-foreground">{org}</span>
+            <button
+              type="button"
+              onClick={() => onToggle(org)}
+              className="text-muted-foreground hover:text-foreground"
+              aria-label={`Stop watching ${org}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+      </span>
+    </div>
+  );
+}
+
 function SortToggle({
   mode,
   onChange,
@@ -1187,15 +1317,20 @@ function ResultsTable({
   organizations,
   loading,
   targets,
+  watched,
+  onToggleWatch,
   onDraft,
 }: {
   matches: Match[] | null;
   organizations?: OrgTimeliness[];
   loading: boolean;
   targets: string[];
+  watched: string[];
+  onToggleWatch: (org: string) => void;
   onDraft: (row: PersonRow) => void;
 }) {
   const [sortMode, setSortMode] = useState<SortMode>("path");
+  const watchedSet = new Set(watched);
   if (loading) {
     return <LoadingIndicator targets={targets} />;
   }
@@ -1257,11 +1392,21 @@ function ResultsTable({
               return (
                 <tr key={i} className="align-top hover:bg-surface-muted">
                   <td className="px-4 py-3">
-                    <PriorityCell row={r} />
+                    <PriorityCell
+                      row={r}
+                      topApl={topAplForOrg(organizations, r.targetOrganization)}
+                    />
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-col gap-1.5">
-                      <span className="text-foreground">{r.targetOrganization}</span>
+                      <span className="flex items-center gap-1.5 text-foreground">
+                        {r.targetOrganization}
+                        <WatchToggle
+                          org={r.targetOrganization}
+                          watched={watchedSet.has(r.targetOrganization)}
+                          onToggle={() => onToggleWatch(r.targetOrganization)}
+                        />
+                      </span>
                       <TimelinessBadge org={orgMap.get(r.targetOrganization)} />
                     </div>
                   </td>
