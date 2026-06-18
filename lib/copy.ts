@@ -87,6 +87,7 @@ export const copy = {
     loading: "Drafting a forwardable intro…",
     emailHeading: "Email to your advisor",
     blurbHeading: "Forwardable blurb",
+    checklistHeading: "APL readiness checklist",
     copy: "Copy",
     copied: "Copied",
     retry: "Regenerate",

@@ -20,9 +20,10 @@ Next.js 15 App Router · TypeScript · Tailwind · shadcn/ui · Anthropic SDK wi
 - Domain types in `lib/types.ts`, no `any`. User-facing copy in `lib/copy.ts`. API routes in `app/api/*/route.ts`.
 
 ## Where everything else lives (load on demand)
-GTM knowledge is split into three skills, each loading only for its pipeline stage:
+GTM knowledge is split into four skills, each loading only for its pipeline stage:
 - **readily-icp** — discovery: ICP, buyer personas, what compliance leaders care about, talking points.
 - **connection-scoring** — scoring: connection-strength signals, verifiability tiers, the matchScore formula.
+- **apl-timeliness** — the "why now" layer: mapping DHCS APLs to an org, urgency scoring, readiness checklist, APL-as-compelling-event hook.
 - **intro-craft** — drafting: intro-email structure, forwardable blurb, tone by persona.
 
 Finished/superseded notes live in `.claude/archive/` (git-tracked, but `.claudeignore`'d so they don't auto-load). Ask if you want them.

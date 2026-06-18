@@ -1,13 +1,66 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
-import { DRAFT_SYSTEM_PROMPT, buildDraftUserMessage } from "@/lib/draft-prompt";
+import {
+  DRAFT_SYSTEM_PROMPT,
+  buildDraftUserMessage,
+  type DraftAplBrief,
+} from "@/lib/draft-prompt";
 import { classifyRole } from "@/lib/scoring";
-import type { DraftRequest, DraftResponse } from "@/lib/types";
+import { soonestUpcomingDeadline } from "@/lib/timeliness";
+import type {
+  Apl,
+  DraftRequest,
+  DraftResponse,
+  ReadinessChecklistItem,
+} from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 45;
 
 const client = new Anthropic();
+
+function buildAplBrief(apl: Apl | null | undefined): DraftAplBrief | null {
+  if (
+    !apl ||
+    typeof apl.number !== "string" ||
+    typeof apl.title !== "string" ||
+    !Array.isArray(apl.keyDates)
+  ) {
+    return null;
+  }
+  const keyDates = apl.keyDates
+    .filter((d) => d && typeof d.date === "string" && typeof d.label === "string")
+    .map((d) => ({ date: d.date, label: d.label }));
+  const soonest = soonestUpcomingDeadline(keyDates, new Date());
+  return {
+    number: apl.number,
+    title: apl.title,
+    issuedDate: typeof apl.issuedDate === "string" ? apl.issuedDate : "",
+    summary: typeof apl.summary === "string" ? apl.summary : "",
+    whoAffected: typeof apl.whoAffected === "string" ? apl.whoAffected : "",
+    soonestDeadline: soonest.date,
+    daysToDeadline: soonest.days,
+    keyDates,
+    sourceUrl: typeof apl.sourceUrl === "string" ? apl.sourceUrl : "",
+  };
+}
+
+function parseChecklist(value: unknown): ReadinessChecklistItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(
+      (x: unknown): x is { item: string; due?: unknown } =>
+        typeof x === "object" &&
+        x !== null &&
+        typeof (x as { item?: unknown }).item === "string" &&
+        (x as { item: string }).item.trim().length > 0,
+    )
+    .map((x) => ({
+      item: x.item.trim(),
+      due:
+        typeof x.due === "string" && x.due.trim().length > 0 ? x.due.trim() : null,
+    }));
+}
 
 function extractJson(text: string): Record<string, unknown> | null {
   const fenced = text.match(/```json\s*([\s\S]*?)```/);
@@ -59,10 +112,11 @@ export async function POST(req: Request) {
   }
 
   const { rank } = classifyRole(body.targetRole);
+  const aplBrief = buildAplBrief(body.apl);
 
   const response = await client.messages.create({
     model: "claude-opus-4-7",
-    max_tokens: 1500,
+    max_tokens: 2000,
     system: DRAFT_SYSTEM_PROMPT,
     messages: [
       {
@@ -76,6 +130,7 @@ export async function POST(req: Request) {
           connectionRationale: body.connectionRationale,
           personaRank: rank,
           senderFirstName: body.senderFirstName,
+          apl: aplBrief,
         }),
       },
     ],
@@ -101,6 +156,7 @@ export async function POST(req: Request) {
   const payload: DraftResponse = {
     email: parsed.email,
     forwardableBlurb: parsed.forwardableBlurb,
+    readinessChecklist: parseChecklist(parsed.readinessChecklist),
   };
 
   return NextResponse.json(payload);

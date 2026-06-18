@@ -13,6 +13,7 @@ import type {
   Match,
   MatchResponse,
   OrgTimeliness,
+  ReadinessChecklistItem,
   TimelinessLabel,
   Verifiability,
 } from "@/lib/types";
@@ -21,6 +22,7 @@ type DraftContext = {
   row: PersonRow;
   path: Path;
   advisors: Advisor[];
+  apl: Apl | null;
 };
 
 // Bump the version suffix whenever the MatchResponse shape changes, so stale
@@ -216,6 +218,7 @@ export default function Home() {
             row,
             path: row.paths[0],
             advisors: parseAdvisors(advisorsText),
+            apl: topAplForOrg(organizations, row.targetOrganization),
           })
         }
       />
@@ -694,6 +697,7 @@ function DraftModal({
           targetOrganization: ctx.row.targetOrganization,
           connectionRationale: ctx.path.rationale,
           senderFirstName: firstNameOf(senderName),
+          apl: ctx.apl,
         }),
       });
       if (!res.ok) {
@@ -804,6 +808,9 @@ function DraftModal({
               heading={copy.draftModal.blurbHeading}
               body={draft.forwardableBlurb}
             />
+            {draft.readinessChecklist && draft.readinessChecklist.length > 0 && (
+              <ChecklistBlock items={draft.readinessChecklist} />
+            )}
             <div className="flex justify-end">
               <button
                 type="button"
@@ -850,6 +857,58 @@ function DraftBlock({ heading, body }: { heading: string; body: string }) {
       <pre className="whitespace-pre-wrap rounded-md border border-border bg-surface-muted px-4 py-3 font-sans text-sm leading-relaxed text-foreground">
         {body}
       </pre>
+    </section>
+  );
+}
+
+function ChecklistBlock({ items }: { items: ReadinessChecklistItem[] }) {
+  const [copied, setCopied] = useState(false);
+  const plain = items
+    .map((it) => `- ${it.item}${it.due ? ` (due ${formatShortDate(it.due)})` : ""}`)
+    .join("\n");
+
+  async function onCopy() {
+    try {
+      await navigator.clipboard.writeText(plain);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // clipboard denied — fall through silently
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {copy.draftModal.checklistHeading}
+        </h3>
+        <button
+          type="button"
+          onClick={onCopy}
+          className="rounded-md border border-border-strong bg-surface px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-surface-muted"
+        >
+          {copied ? copy.draftModal.copied : copy.draftModal.copy}
+        </button>
+      </div>
+      <ul className="flex flex-col gap-1.5 rounded-md border border-border bg-surface-muted px-4 py-3">
+        {items.map((it, i) => (
+          <li
+            key={i}
+            className="flex items-start gap-2 text-sm leading-relaxed text-foreground"
+          >
+            <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-border-strong" />
+            <span>
+              {it.item}
+              {it.due && (
+                <span className="ml-2 inline-block whitespace-nowrap rounded bg-surface px-1.5 py-0.5 text-xs font-medium text-accent-ink ring-1 ring-accent-ring">
+                  due {formatShortDate(it.due)}
+                </span>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -925,6 +984,31 @@ function upcomingKeyDates(apl: Apl): UpcomingDate[] {
     .map((d) => ({ date: d.date, label: d.label, days: daysUntilClient(d.date) }))
     .filter((d): d is UpcomingDate => d.days !== null && d.days >= 0)
     .sort((a, b) => a.days - b.days);
+}
+
+// The org's most urgent APL: soonest upcoming deadline, else most recently issued.
+function topAplForOrg(
+  organizations: OrgTimeliness[] | undefined,
+  org: string,
+): Apl | null {
+  const o = organizations?.find((x) => x.organization === org);
+  if (!o || o.apls.length === 0) return null;
+  let best: Apl | null = null;
+  let bestDays = Infinity;
+  for (const apl of o.apls) {
+    const upcoming = (apl.keyDates ?? [])
+      .map((d) => daysUntilClient(d.date))
+      .filter((n): n is number => n !== null && n >= 0);
+    const minDays = upcoming.length ? Math.min(...upcoming) : Infinity;
+    if (minDays < bestDays) {
+      bestDays = minDays;
+      best = apl;
+    }
+  }
+  if (best) return best;
+  return [...o.apls].sort((a, b) =>
+    (b.issuedDate ?? "").localeCompare(a.issuedDate ?? ""),
+  )[0];
 }
 
 function AplPanel({ org }: { org: OrgTimeliness }) {

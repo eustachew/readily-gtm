@@ -24,7 +24,7 @@ Must stand alone, sound like the advisor wrote it, do the advisor a favor (make 
 
 - **Context** (why the advisor is sending): 1 line
 - **Credibility** (why Readily is worth time): use ICP talking points; reference concrete healthcare compliance pain
-- **Specific hook for THIS target**: a fact or plausible inference about their organization (recent APL, public initiative, segment-specific pain like delegated-entity audits or DMHC filings). If you don't know a specific fact, reach for a segment-specific hook (e.g., "CMS Star Ratings pressure," "CalAIM reporting churn"). Never fabricate a specific incident.
+- **Specific hook for THIS target**: when an APL is supplied (see the APL timeliness section), it IS the hook — cited and dated. Otherwise, a plausible inference about their organization (public initiative, segment-specific pain like delegated-entity audits or DMHC filings) or a segment hook (e.g., "CMS Star Ratings pressure," "CalAIM reporting churn"). Never fabricate a specific incident.
 - **Low-commitment CTA**: "15 min to compare notes" — NEVER "demo" on first touch
 
 ## Tone calibration (apply the one matching the target persona)
@@ -69,6 +69,26 @@ Avoid (reads like marketing copy):
 - "Readily empowers…"
 - "Readily is a platform that…"
 
+# APL timeliness — the compelling event (use when an APL is supplied)
+
+When the user message includes a specific applicable APL, it is the single strongest hook you have. Warm intros convert on timing: a compliance leader whose plan just got a new All Plan Letter with a live deadline is in-market right now. Make the APL the spine of the forwardable blurb's hook.
+
+- Name the APL by number and what changed, in plain language: "DHCS just dropped APL 26-005 on maternity services."
+- Anchor on the nearest deadline as a date + countdown: "plans have until June 23 to get updated P&Ps in." The urgency is the point.
+- Tie it to Readily's wedge: this is exactly the moment Readily exists for — knowing which internal policies the new APL touches, the day it lands, instead of a manual 100k-page crosswalk.
+- NEVER invent an APL number, date, or requirement — use only what is supplied. If the nearest deadline has already passed, frame it as "the dust is still settling on APL XX-XXX" rather than a countdown.
+
+## Readiness checklist (emit only when an APL is supplied)
+
+Also produce a short compliance-readiness checklist for the supplied APL — the concrete things a compliance team must do, in deadline order. This is a useful artifact the advisor's contact would thank them for, not marketing.
+
+- 4–6 items, each a concrete action (map affected policies, update P&Ps, file an attestation, amend network agreements, assign an owner).
+- Nearest-deadline items first. Attach the ISO due date to each item drawn from a supplied key date; use null for general prep with no fixed date.
+- Draw every dated item from the supplied key dates — never invent a date or a requirement.
+- Each item under ~15 words, leading with the verb.
+
+If no APL is supplied, return an empty readinessChecklist array and use a segment hook for the blurb as described above.
+
 ## Failure modes — treat these as HARD prohibitions
 
 - DO NOT sound AI-generated. Ban phrases: "I hope this email finds you well," "I trust you're doing well," "Reaching out to," "Touching base," "In today's landscape," "In the evolving world of," "Leveraging cutting-edge," "At the intersection of."
@@ -90,11 +110,14 @@ Return a single fenced JSON code block and nothing else outside it:
 \`\`\`json
 {
   "email": "Subject: <short subject>\\n\\n<5-line body, to the advisor>",
-  "forwardableBlurb": "<standalone blurb, under 120 words, sounds like the advisor wrote it>"
+  "forwardableBlurb": "<standalone blurb, under 120 words, sounds like the advisor wrote it>",
+  "readinessChecklist": [
+    { "item": "<concise action, verb-first, under ~15 words>", "due": "YYYY-MM-DD or null" }
+  ]
 }
 \`\`\`
 
-The email body MUST start with a subject line prefixed "Subject: ". Use \\n for line breaks inside JSON strings. End the email body with the sender's first name (supplied in the user message) on its own line as the signoff — no longer sign-off, no "[Name]" placeholder, no company signature block.`;
+The email body MUST start with a subject line prefixed "Subject: ". Use \\n for line breaks inside JSON strings. End the email body with the sender's first name (supplied in the user message) on its own line as the signoff — no longer sign-off, no "[Name]" placeholder, no company signature block. readinessChecklist must be an array (empty if no APL was supplied); every dated item's due date must come from the supplied key dates.`;
 
 const PERSONA_TONES: Record<string, string> = {
   "1": "CCO (persona rank 1) — serious, ROI/risk posture, audit-ready framing, peer customer logos if any",
@@ -102,6 +125,18 @@ const PERSONA_TONES: Record<string, string> = {
   "3": "VP / Senior Director of Compliance (persona rank 3) — tactical, daily-workflow pain",
   "4": "Director of Regulatory / Delegation Oversight (persona rank 4) — ultra-specific to delegated-entity audits and oversight reporting",
   "5": "Chief Audit Executive / VP Internal Audit (persona rank 5) — evidence trail, defensibility, sampling",
+};
+
+export type DraftAplBrief = {
+  number: string;
+  title: string;
+  issuedDate: string;
+  summary: string;
+  whoAffected: string;
+  soonestDeadline: string | null;
+  daysToDeadline: number | null;
+  keyDates: Array<{ date: string; label: string }>;
+  sourceUrl: string;
 };
 
 export function buildDraftUserMessage(params: {
@@ -113,11 +148,35 @@ export function buildDraftUserMessage(params: {
   connectionRationale: string;
   personaRank: PersonaRank;
   senderFirstName: string;
+  apl?: DraftAplBrief | null;
 }): string {
   const personaKey = params.personaRank ? String(params.personaRank) : null;
   const toneGuidance = personaKey
     ? PERSONA_TONES[personaKey]
     : "Persona rank unknown — use the VP Compliance (tactical) register as the default.";
+
+  const apl = params.apl;
+  const aplBlock = apl
+    ? `
+
+TIMELY APL FOR ${params.targetOrganization} — use this as the blurb's hook AND build the readiness checklist from it:
+- ${apl.number} — ${apl.title} (issued ${apl.issuedDate})
+- What it changes: ${apl.summary}
+- Who it binds: ${apl.whoAffected}
+- Nearest upcoming deadline: ${
+        apl.soonestDeadline
+          ? `${apl.soonestDeadline} (${apl.daysToDeadline} days out)`
+          : "none upcoming — recently issued"
+      }
+- Key dates (use ONLY these for dated checklist items):
+${apl.keyDates.map((d) => `   • ${d.date} — ${d.label}`).join("\n")}
+- Source: ${apl.sourceUrl}
+Use only these dates and facts — do not invent additional requirements or deadlines.`
+    : "";
+
+  const blurbHook = apl
+    ? `Lead the forwardable blurb's hook with ${apl.number}: name what it changed in plain language, cite the nearest deadline as a date + countdown, and tie it to Readily's wedge (knowing which internal policies the APL touches the day it lands). Then the credibility line and the low-commitment CTA.`
+    : `Must include a segment-specific hook for ${params.targetOrganization} — if you don't know the org specifically, use a plausible hook tied to their segment (California Medicaid MCO, IDN, etc.).`;
 
   return `Draft the intro-request email and forwardable blurb for this pairing.
 
@@ -125,12 +184,15 @@ Advisor (recipient of your email): ${params.advisorName}, ${params.advisorOrgani
 Target person: ${params.targetName}, ${params.targetRole} at ${params.targetOrganization}
 Connection signal the matcher surfaced: ${params.connectionRationale}
 Sender first name (use this verbatim as the email signoff — last line of the body): ${params.senderFirstName}
+${aplBlock}
 
 Tone calibration to use: ${toneGuidance}
 
 Write the email as if I (a Readily GTM operator named ${params.senderFirstName}) am sending it to ${params.advisorName}. Start with a line that acknowledges our relationship with them in one beat — the connection signal above is your hint, but do not quote it verbatim if it's an abstention rationale (if it says "no signal surfaced," open neutrally rather than inventing familiarity). Then the ask, the why, the ease (point them at the blurb), the escape hatch. 5 lines max. End with "${params.senderFirstName}" on its own line — no other sign-off, no "[Name]" placeholder.
 
-Write the forwardable blurb so ${params.advisorName} can paste it to ${params.targetName} with zero edits. Under 120 words. Must include a segment-specific hook for ${params.targetOrganization} — if you don't know the org specifically, use a plausible hook tied to their segment (California Medicaid MCO, IDN, etc.). When referencing what Readily does, use founder voice over marketing voice (see the preference section in the system prompt).
+Write the forwardable blurb so ${params.advisorName} can paste it to ${params.targetName} with zero edits. Under 120 words. ${blurbHook} When referencing what Readily does, use founder voice over marketing voice (see the preference section in the system prompt).
+
+${apl ? "Build readinessChecklist from the key dates above (4–6 items, nearest deadline first, dated where applicable)." : "No APL supplied — return an empty readinessChecklist array."}
 
 Return JSON per the schema.`;
 }

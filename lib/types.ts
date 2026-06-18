@@ -75,6 +75,11 @@ export type MatchResponse = {
   notes?: string;
 };
 
+export type ReadinessChecklistItem = {
+  item: string; // the action a compliance team must take
+  due: string | null; // ISO date if the obligation has one, else null
+};
+
 export type DraftRequest = {
   advisorName: string;
   advisorOrganization: string;
@@ -83,9 +88,11 @@ export type DraftRequest = {
   targetOrganization: string;
   connectionRationale: string;
   senderFirstName: string;
+  apl?: Apl | null; // the org's most urgent applicable APL, if any — grounds the hook + checklist
 };
 
 export type DraftResponse = {
   email: string;
   forwardableBlurb: string;
+  readinessChecklist?: ReadinessChecklistItem[];
 };
