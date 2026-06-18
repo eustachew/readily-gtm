@@ -23,7 +23,10 @@ type DraftContext = {
   advisors: Advisor[];
 };
 
-const CACHE_PREFIX = "match_cache_";
+// Bump the version suffix whenever the MatchResponse shape changes, so stale
+// localStorage entries from an older schema (e.g. pre-APL-keyDates) are ignored
+// rather than replayed.
+const CACHE_PREFIX = "match_cache_v2_";
 
 async function hashInputs(advisors: string, targets: string): Promise<string> {
   const normalized = `${advisors.trim().toLowerCase()}|||${targets.trim().toLowerCase()}`;
